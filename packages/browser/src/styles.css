@@ -31,6 +31,8 @@
 .chronaxis-grid { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .chronaxis-grid line { stroke: var(--chronaxis-grid-color); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .chronaxis-items { position: absolute; overflow: hidden; z-index: 2; pointer-events: none; }
+.chronaxis-pannable { cursor: grab; touch-action: pan-y; }
+.chronaxis-panning { cursor: grabbing; user-select: none; }
 .chronaxis-item { position: absolute; display: flex; align-items: center; min-width: 0; overflow: hidden; padding: 0 9px; border-radius: 5px; color: var(--chronaxis-item-color); background: var(--chronaxis-item-background); box-shadow: 0 1px 2px rgb(22 32 51 / 18%); white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
 .chronaxis-item-clipped-start { border-radius: 0 5px 5px 0; }
 .chronaxis-item-clipped-end { border-radius: 5px 0 0 5px; }

@@ -45,6 +45,38 @@ function flushFrame(): void {
   for (const [, callback] of pending) callback(0);
 }
 
+function rootOf(container: HTMLElement): HTMLElement {
+  return container.querySelector<HTMLElement>('.chronaxis')!;
+}
+
+function wheel(root: HTMLElement, options: WheelEventInit): WheelEvent {
+  const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: 370, clientY: 100, ...options });
+  Object.defineProperties(event, {
+    clientX: { value: options.clientX ?? 370 },
+    clientY: { value: options.clientY ?? 100 },
+    ctrlKey: { value: options.ctrlKey ?? false },
+    metaKey: { value: options.metaKey ?? false },
+    deltaY: { value: options.deltaY ?? 0 },
+    deltaMode: { value: options.deltaMode ?? 0 },
+  });
+  root.dispatchEvent(event);
+  return event;
+}
+
+function pointer(root: HTMLElement, type: string, options: PointerEventInit): PointerEvent {
+  const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
+  Object.defineProperties(event, {
+    clientX: { value: options.clientX ?? 0 },
+    clientY: { value: options.clientY ?? 70 },
+    pointerId: { value: options.pointerId ?? 1 },
+    pointerType: { value: options.pointerType ?? 'mouse' },
+    isPrimary: { value: options.isPrimary ?? true },
+    button: { value: options.button ?? 0 },
+  });
+  root.dispatchEvent(event);
+  return event;
+}
+
 beforeEach(() => {
   document.body.replaceChildren();
   observers = [];
@@ -144,5 +176,166 @@ describe('createTimeline lifecycle', () => {
     expect(container.querySelector('.chronaxis')).toBeNull();
     expect(observers[0]?.disconnect).toHaveBeenCalledTimes(1);
     expect(frames.size).toBe(0);
+  });
+});
+
+describe('timeline range API', () => {
+  it('updates state immediately, returns copies, and preserves state after invalid input', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    timeline.setRange({ start: '2026-03-01T00:00:00Z', end: '2026-04-01T00:00:00Z' });
+    const expected = { start: Date.UTC(2026, 2, 1), end: Date.UTC(2026, 3, 1) };
+    expect(timeline.getRange()).toEqual(expected);
+
+    const snapshot = timeline.getRange();
+    snapshot.start = 0;
+    expect(timeline.getRange()).toEqual(expected);
+    expect(() => timeline.setRange({ start: 10, end: 5 })).toThrow(RangeError);
+    expect(timeline.getRange()).toEqual(expected);
+  });
+
+  it('coalesces synchronous state updates into one render using the newest state', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    timeline.setRange({ start: 0, end: 1_000_000 });
+    timeline.scrollTo(2_000_000);
+    timeline.zoomIn();
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(frames.size).toBe(1);
+    expect((timeline.getRange().start + timeline.getRange().end) / 2).toBe(2_000_000);
+  });
+
+  it('keeps temporal state unchanged when the container resizes', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const before = timeline.getRange();
+    Object.defineProperty(container, 'clientWidth', { configurable: true, get: () => 900 });
+    notifyResize();
+    flushFrame();
+    expect(timeline.getRange()).toEqual(before);
+  });
+
+  it('supports fit, empty fit, zoom, and scroll alignment', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    timeline.fit();
+    const fitted = timeline.getRange();
+    expect(fitted.start).toBeLessThan(Date.UTC(2026, 0, 5));
+    expect(fitted.end).toBeGreaterThan(Date.UTC(2026, 0, 10));
+
+    const fittedDuration = fitted.end - fitted.start;
+    timeline.zoomIn();
+    expect(timeline.getRange().end - timeline.getRange().start).toBeCloseTo(fittedDuration / 1.5);
+    timeline.zoomOut();
+    expect(timeline.getRange().end - timeline.getRange().start).toBeCloseTo(fittedDuration);
+    timeline.scrollTo(0, { align: 'start' });
+    expect(timeline.getRange().start).toBe(0);
+
+    const emptyOptions = timelineOptions();
+    emptyOptions.items = [];
+    const empty = createTimeline(containerAt(600), emptyOptions);
+    const before = empty.getRange();
+    empty.fit();
+    expect(empty.getRange()).toEqual(before);
+  });
+});
+
+describe('wheel zoom', () => {
+  it('requires Ctrl or Cmd by default and only prevents handled wheel events', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const root = rootOf(container);
+    const before = timeline.getRange();
+
+    expect(wheel(root, { deltaY: -100 }).defaultPrevented).toBe(false);
+    expect(timeline.getRange()).toEqual(before);
+    const anchorRatio = 0.25;
+    const anchorTime = before.start + (before.end - before.start) * anchorRatio;
+    expect(wheel(root, { deltaY: -100, ctrlKey: true, clientX: 140 + 460 * anchorRatio }).defaultPrevented).toBe(true);
+    const after = timeline.getRange();
+    expect(after.end - after.start).toBeLessThan(before.end - before.start);
+    expect(after.start + (after.end - after.start) * anchorRatio).toBeCloseTo(anchorTime);
+  });
+
+  it('supports always-on zoom and ignores the row-label gutter', () => {
+    const options = timelineOptions();
+    options.interactions = { wheelZoom: 'always' };
+    const container = containerAt(600);
+    const timeline = createTimeline(container, options);
+    const root = rootOf(container);
+    const before = timeline.getRange();
+
+    expect(wheel(root, { deltaY: -50, clientX: 50 }).defaultPrevented).toBe(false);
+    expect(timeline.getRange()).toEqual(before);
+    expect(wheel(root, { deltaY: -50 }).defaultPrevented).toBe(true);
+  });
+
+  it('can be disabled and its listener is removed on destroy', () => {
+    const disabledOptions = timelineOptions();
+    disabledOptions.interactions = { wheelZoom: false };
+    const disabledContainer = containerAt(600);
+    const disabled = createTimeline(disabledContainer, disabledOptions);
+    expect(wheel(rootOf(disabledContainer), { deltaY: -100, ctrlKey: true }).defaultPrevented).toBe(false);
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+    disabled.destroy();
+
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const root = rootOf(container);
+    timeline.destroy();
+    expect(wheel(root, { deltaY: -100, ctrlKey: true }).defaultPrevented).toBe(false);
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+  });
+});
+
+describe('pointer panning', () => {
+  it('waits for the activation threshold, pans from the original range, and cancels safely', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const root = rootOf(container);
+    Object.defineProperties(root, {
+      setPointerCapture: { value: vi.fn(), configurable: true },
+      hasPointerCapture: { value: vi.fn(() => true), configurable: true },
+      releasePointerCapture: { value: vi.fn(), configurable: true },
+    });
+    const initial = timeline.getRange();
+
+    expect(root.classList.contains('chronaxis-pannable')).toBe(true);
+    pointer(root, 'pointerdown', { clientX: 300 });
+    expect(root.setPointerCapture).toHaveBeenCalledWith(1);
+    pointer(root, 'pointermove', { clientX: 303 });
+    expect(timeline.getRange()).toEqual(initial);
+    pointer(root, 'pointermove', { clientX: 320 });
+    expect(timeline.getRange().start).toBeLessThan(initial.start);
+    const panned = timeline.getRange();
+    flushFrame();
+
+    pointer(root, 'pointercancel', { clientX: 320 });
+    pointer(root, 'pointermove', { clientX: 350 });
+    expect(timeline.getRange()).toEqual(panned);
+    expect(frames.size).toBe(0);
+    expect(root.classList.contains('chronaxis-panning')).toBe(false);
+  });
+
+  it('does not start in the gutter and can be disabled', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const before = timeline.getRange();
+    pointer(rootOf(container), 'pointerdown', { clientX: 50 });
+    pointer(rootOf(container), 'pointermove', { clientX: 100 });
+    expect(timeline.getRange()).toEqual(before);
+    const enabledRoot = rootOf(container);
+    timeline.destroy();
+    pointer(enabledRoot, 'pointerdown', { clientX: 300 });
+    pointer(enabledRoot, 'pointermove', { clientX: 350 });
+    expect(timeline.getRange()).toEqual(before);
+
+    const disabledOptions = timelineOptions();
+    disabledOptions.interactions = { pan: false };
+    const disabledContainer = containerAt(600);
+    const disabled = createTimeline(disabledContainer, disabledOptions);
+    pointer(rootOf(disabledContainer), 'pointerdown', { clientX: 300 });
+    pointer(rootOf(disabledContainer), 'pointermove', { clientX: 350 });
+    expect(disabled.getRange()).toEqual({
+      start: Date.UTC(2026, 0, 1),
+      end: Date.UTC(2026, 1, 1),
+    });
   });
 });

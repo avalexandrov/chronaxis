@@ -26,8 +26,19 @@ const items: TimelineItem[] = [
 const container = document.querySelector<HTMLElement>('#timeline');
 if (!container) throw new Error('Timeline container not found.');
 
-createTimeline(container, {
+const timeline = createTimeline(container, {
   range: { start: '2026-01-01T00:00:00Z', end: '2026-04-01T00:00:00Z' },
   rows,
   items,
+});
+
+document.querySelector('.demo-toolbar')?.addEventListener('click', (event) => {
+  const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+  if (action === 'zoom-in') timeline.zoomIn();
+  else if (action === 'zoom-out') timeline.zoomOut();
+  else if (action === 'fit') timeline.fit();
+  else if (action === 'launch') timeline.scrollTo('2026-03-23T00:00:00Z');
+  else if (action === 'quarter') {
+    timeline.setRange({ start: '2026-01-01T00:00:00Z', end: '2026-04-01T00:00:00Z' });
+  }
 });

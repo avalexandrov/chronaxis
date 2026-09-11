@@ -10,7 +10,15 @@
     <main>
       <p class="eyebrow">Framework-agnostic timelines for the web</p>
       <h1>Chronaxis — Vanilla TypeScript Demo</h1>
-      <p class="intro">A static product delivery plan. Resize the window to see the timeline recompute its geometry.</p>
+      <p class="intro">An interactive product delivery plan with framework-independent timeline mathematics.</p>
+      <div class="demo-toolbar" aria-label="Timeline controls">
+        <button type="button" data-action="zoom-in">Zoom in</button>
+        <button type="button" data-action="zoom-out">Zoom out</button>
+        <button type="button" data-action="fit">Fit</button>
+        <button type="button" data-action="launch">Center launch</button>
+        <button type="button" data-action="quarter">Reset Q1</button>
+      </div>
+      <p class="instructions">Drag the plot to pan <span aria-hidden="true">·</span> Ctrl/Cmd + wheel or trackpad pinch to zoom</p>
       <div id="timeline" aria-label="Product delivery timeline"></div>
     </main>
     <script type="module" src="/src/main.ts"></script>
