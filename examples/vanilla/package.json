@@ -1,0 +1,14 @@
+{
+  "name": "@chronaxis/vanilla-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@chronaxis/browser": "0.0.0"
+  }
+}

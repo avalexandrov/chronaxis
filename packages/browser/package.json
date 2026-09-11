@@ -1,0 +1,24 @@
+{
+  "name": "@chronaxis/browser",
+  "version": "0.0.0",
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && cp src/styles.css dist/styles.css",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@chronaxis/core": "0.0.0"
+  }
+}

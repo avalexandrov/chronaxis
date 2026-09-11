@@ -1,0 +1,22 @@
+{
+  "name": "chronaxis-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "npm@11.17.0",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/vanilla-example",
+    "dev": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run dev -w @chronaxis/vanilla-example",
+    "test": "npm run test -w @chronaxis/core && npm run test -w @chronaxis/browser",
+    "typecheck": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run typecheck -w @chronaxis/vanilla-example"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.14.3",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5",
+    "vitest": "^5.0.0"
+  }
+}
