@@ -17,9 +17,22 @@
         <button type="button" data-action="fit">Fit</button>
         <button type="button" data-action="launch">Center launch</button>
         <button type="button" data-action="quarter">Reset Q1</button>
+        <button type="button" data-action="clear-selection">Clear selection</button>
       </div>
-      <p class="instructions">Drag the plot to pan <span aria-hidden="true">·</span> Ctrl/Cmd + wheel or trackpad pinch to zoom</p>
+      <p class="instructions">
+        Click an item to select it <span aria-hidden="true">·</span>
+        Tab to an item and press Enter or Space to activate it <span aria-hidden="true">·</span>
+        Drag the plot or an item to pan <span aria-hidden="true">·</span>
+        Ctrl/Cmd + wheel or trackpad pinch to zoom
+      </p>
       <div id="timeline" aria-label="Product delivery timeline"></div>
+      <section class="event-panel" aria-labelledby="event-log-heading">
+        <div class="event-panel__heading">
+          <h2 id="event-log-heading">Event log</h2>
+          <span>Latest 12 events</span>
+        </div>
+        <ol id="event-log" aria-live="polite" aria-relevant="additions"></ol>
+      </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

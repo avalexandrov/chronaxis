@@ -32,6 +32,35 @@ const timeline = createTimeline(container, {
   items,
 });
 
+const eventLog = document.querySelector<HTMLOListElement>('#event-log');
+
+function logEvent(name: string, detail: string): void {
+  if (!eventLog) return;
+  const entry = document.createElement('li');
+  const timestamp = document.createElement('time');
+  timestamp.dateTime = new Date().toISOString();
+  timestamp.textContent = new Date().toLocaleTimeString();
+  const message = document.createElement('span');
+  message.textContent = `${name} — ${detail}`;
+  entry.append(timestamp, message);
+  eventLog.prepend(entry);
+  while (eventLog.children.length > 12) eventLog.lastElementChild?.remove();
+}
+
+timeline.on('itemClick', ({ item }) => {
+  logEvent('itemClick', `${item.label ?? item.id} (${item.id})`);
+});
+
+timeline.on('selectionChange', ({ selectedItem, source }) => {
+  logEvent('selectionChange', `${selectedItem?.label ?? 'none'} via ${source}`);
+});
+
+timeline.on('rangeChange', ({ range, source }) => {
+  const start = new Date(range.start).toISOString().slice(0, 10);
+  const end = new Date(range.end).toISOString().slice(0, 10);
+  logEvent('rangeChange', `${start} → ${end} via ${source}`);
+});
+
 document.querySelector('.demo-toolbar')?.addEventListener('click', (event) => {
   const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
   if (action === 'zoom-in') timeline.zoomIn();
@@ -41,4 +70,5 @@ document.querySelector('.demo-toolbar')?.addEventListener('click', (event) => {
   else if (action === 'quarter') {
     timeline.setRange({ start: '2026-01-01T00:00:00Z', end: '2026-04-01T00:00:00Z' });
   }
+  else if (action === 'clear-selection') timeline.clearSelection();
 });

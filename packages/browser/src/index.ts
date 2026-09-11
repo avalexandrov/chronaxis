@@ -2,10 +2,17 @@ import './styles.css';
 
 export { createTimeline } from './create-timeline.js';
 export type {
+  ItemClickEvent,
+  RangeChangeEvent,
+  RangeChangeSource,
   ScrollAlignment,
   ScrollToOptions,
+  SelectionChangeEvent,
+  SelectionChangeSource,
+  TimelineEventMap,
   TimelineInstance,
   TimelineInteractionOptions,
+  TimelineItemSnapshot,
   TimelineOptions,
   TimelineViewportOptions,
   WheelZoomMode,

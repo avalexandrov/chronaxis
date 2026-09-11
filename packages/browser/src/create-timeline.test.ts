@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { createTimeline } from './create-timeline.js';
-import type { TimelineOptions } from './types.js';
+import type { TimelineEventMap, TimelineInstance, TimelineOptions } from './types.js';
 
 interface ObserverRecord {
   callback: ResizeObserverCallback;
@@ -47,6 +47,11 @@ function flushFrame(): void {
 
 function rootOf(container: HTMLElement): HTMLElement {
   return container.querySelector<HTMLElement>('.chronaxis')!;
+}
+
+function itemOf(container: HTMLElement, itemId = 'item'): HTMLElement {
+  return [...container.querySelectorAll<HTMLElement>('[data-chronaxis-item-id]')]
+    .find((item) => item.dataset.chronaxisItemId === itemId)!;
 }
 
 function wheel(root: HTMLElement, options: WheelEventInit): WheelEvent {
@@ -337,5 +342,265 @@ describe('pointer panning', () => {
       start: Date.UTC(2026, 0, 1),
       end: Date.UTC(2026, 1, 1),
     });
+  });
+});
+
+describe('selection and activation', () => {
+  it('starts empty, selects by API, renders state, and clears without duplicate events', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const changes: TimelineEventMap<{ owner: string }>['selectionChange'][] = [];
+    timeline.on('selectionChange', (event) => changes.push(event));
+
+    expect(timeline.getSelectedItemId()).toBeNull();
+    timeline.selectItem('item');
+    expect(timeline.getSelectedItemId()).toBe('item');
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ source: 'api', selectedItem: { id: 'item', start: Date.UTC(2026, 0, 5) } });
+    expect(Object.isFrozen(changes[0])).toBe(true);
+    expect(Object.isFrozen(changes[0]?.selectedItem)).toBe(true);
+    flushFrame();
+    expect(itemOf(container).dataset.selected).toBe('true');
+    expect(itemOf(container).getAttribute('aria-pressed')).toBe('true');
+
+    timeline.selectItem('item');
+    expect(changes).toHaveLength(1);
+    timeline.clearSelection();
+    timeline.clearSelection();
+    expect(timeline.getSelectedItemId()).toBeNull();
+    expect(changes).toHaveLength(2);
+    expect(changes[1]).toEqual({ selectedItem: null, source: 'api' });
+  });
+
+  it('rejects nonexistent and duplicate item IDs', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    expect(() => timeline.selectItem('missing')).toThrow(/Unknown timeline item ID/);
+    const duplicateOptions = timelineOptions();
+    duplicateOptions.items = [duplicateOptions.items[0]!, { ...duplicateOptions.items[0]! }];
+    expect(() => createTimeline(containerAt(600), duplicateOptions)).toThrow(/Duplicate item ID/);
+  });
+
+  it('pointer activation selects an item and always emits itemClick', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const root = rootOf(container);
+    const selectionSources: string[] = [];
+    const clicks: string[] = [];
+    timeline.on('selectionChange', (event) => selectionSources.push(event.source));
+    timeline.on('itemClick', (event) => clicks.push(event.item.id));
+
+    pointer(itemOf(container), 'pointerdown', { clientX: 210 });
+    pointer(root, 'pointerup', { clientX: 212 });
+    expect(timeline.getSelectedItemId()).toBe('item');
+    expect(selectionSources).toEqual(['pointer']);
+    expect(clicks).toEqual(['item']);
+
+    pointer(itemOf(container), 'pointerdown', { clientX: 210 });
+    pointer(root, 'pointerup', { clientX: 210 });
+    expect(selectionSources).toEqual(['pointer']);
+    expect(clicks).toEqual(['item', 'item']);
+  });
+
+  it('activates below the threshold but pans without activation above it', () => {
+    const belowContainer = containerAt(600);
+    const below = createTimeline(belowContainer, timelineOptions());
+    const belowRoot = rootOf(belowContainer);
+    const belowClicks = vi.fn();
+    below.on('itemClick', belowClicks);
+    pointer(itemOf(belowContainer), 'pointerdown', { clientX: 210 });
+    pointer(belowRoot, 'pointermove', { clientX: 213 });
+    pointer(belowRoot, 'pointerup', { clientX: 213 });
+    expect(belowClicks).toHaveBeenCalledTimes(1);
+
+    const dragContainer = containerAt(600);
+    const dragged = createTimeline(dragContainer, timelineOptions());
+    const dragRoot = rootOf(dragContainer);
+    const dragClicks = vi.fn();
+    const initialRange = dragged.getRange();
+    dragged.on('itemClick', dragClicks);
+    pointer(itemOf(dragContainer), 'pointerdown', { clientX: 210 });
+    pointer(dragRoot, 'pointermove', { clientX: 230 });
+    pointer(dragRoot, 'pointerup', { clientX: 230 });
+    expect(dragClicks).not.toHaveBeenCalled();
+    expect(dragged.getSelectedItemId()).toBeNull();
+    expect(dragged.getRange().start).toBeLessThan(initialRange.start);
+  });
+
+  it('does not activate a cancelled pointer gesture', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const root = rootOf(container);
+    const clicks = vi.fn();
+    timeline.on('itemClick', clicks);
+    pointer(itemOf(container), 'pointerdown', { clientX: 210 });
+    pointer(root, 'pointercancel', { clientX: 210 });
+    expect(clicks).not.toHaveBeenCalled();
+    expect(timeline.getSelectedItemId()).toBeNull();
+  });
+
+  it('keeps selection while the item is culled and restores its selected rendering', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    timeline.selectItem('item');
+    flushFrame();
+    timeline.setRange({ start: '2030-01-01', end: '2030-02-01' });
+    flushFrame();
+    expect(itemOf(container)).toBeUndefined();
+    expect(timeline.getSelectedItemId()).toBe('item');
+    timeline.setRange({ start: '2026-01-01', end: '2026-02-01' });
+    flushFrame();
+    expect(itemOf(container).dataset.selected).toBe('true');
+  });
+});
+
+describe('typed public events', () => {
+  it('preserves generic item data types', () => {
+    expectTypeOf<TimelineInstance<{ owner: string }>['on']>().toBeFunction();
+    expectTypeOf<TimelineEventMap<{ owner: string }>['itemClick']['item']['data']>()
+      .toEqualTypeOf<{ owner: string } | undefined>();
+  });
+
+  it('notifies multiple handlers and supports isolated idempotent unsubscription', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    const first = vi.fn();
+    const second = vi.fn();
+    const unsubscribe = timeline.on('selectionChange', first);
+    timeline.on('selectionChange', second);
+    unsubscribe();
+    unsubscribe();
+    timeline.selectItem('item');
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets every handler run and surfaces failures asynchronously', () => {
+    const queued: Array<() => void> = [];
+    vi.stubGlobal('queueMicrotask', (callback: () => void) => queued.push(callback));
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    const second = vi.fn();
+    timeline.on('selectionChange', () => { throw new Error('consumer failure'); });
+    timeline.on('selectionChange', second);
+    timeline.selectItem('item');
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(queued).toHaveLength(1);
+    expect(queued[0]).toThrow('consumer failure');
+    expect(timeline.getSelectedItemId()).toBe('item');
+  });
+
+  it('clears subscriptions and makes mutating APIs safe no-ops after destroy', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    const selection = vi.fn();
+    const range = vi.fn();
+    const unsubscribe = timeline.on('selectionChange', selection);
+    timeline.on('rangeChange', range);
+    const before = timeline.getRange();
+    timeline.destroy();
+    timeline.selectItem('item');
+    timeline.clearSelection();
+    timeline.setRange({ start: 0, end: 1 });
+    timeline.fit();
+    timeline.zoomIn();
+    timeline.zoomOut();
+    timeline.scrollTo(0);
+    timeline.on('selectionChange', selection)();
+    unsubscribe();
+    expect(timeline.getRange()).toEqual(before);
+    expect(timeline.getSelectedItemId()).toBeNull();
+    expect(selection).not.toHaveBeenCalled();
+    expect(range).not.toHaveBeenCalled();
+  });
+});
+
+describe('rangeChange events', () => {
+  it('emits after rendering with the latest range and latest synchronous source', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    const events: TimelineEventMap['rangeChange'][] = [];
+    timeline.on('rangeChange', (event) => events.push(event));
+    timeline.setRange({ start: 0, end: 1_000_000 });
+    timeline.scrollTo(2_000_000);
+    timeline.zoomIn();
+    expect(events).toHaveLength(0);
+    flushFrame();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.source).toBe('zoomIn');
+    expect(events[0]?.range).toEqual(timeline.getRange());
+    expect(Object.isFrozen(events[0])).toBe(true);
+    expect(Object.isFrozen(events[0]?.range)).toBe(true);
+  });
+
+  it('does not emit for unchanged state, including a round trip before rendering', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    const events = vi.fn();
+    timeline.on('rangeChange', events);
+    const initial = timeline.getRange();
+    timeline.setRange(initial);
+    expect(frames.size).toBe(0);
+    timeline.setRange({ start: 0, end: 1_000 });
+    timeline.setRange(initial);
+    flushFrame();
+    expect(events).not.toHaveBeenCalled();
+  });
+
+  it('reports sources for every viewport operation', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const root = rootOf(container);
+    const sources: string[] = [];
+    timeline.on('rangeChange', (event) => sources.push(event.source));
+
+    timeline.setRange({ start: 0, end: 1_000_000 });
+    flushFrame();
+    timeline.fit();
+    flushFrame();
+    timeline.zoomIn();
+    flushFrame();
+    timeline.zoomOut();
+    flushFrame();
+    timeline.scrollTo(0);
+    flushFrame();
+    wheel(root, { deltaY: -100, ctrlKey: true });
+    flushFrame();
+    pointer(root, 'pointerdown', { clientX: 300 });
+    pointer(root, 'pointermove', { clientX: 320 });
+    flushFrame();
+    pointer(root, 'pointercancel', { clientX: 320 });
+
+    expect(sources).toEqual(['setRange', 'fit', 'zoomIn', 'zoomOut', 'scrollTo', 'wheel', 'pan']);
+  });
+});
+
+describe('keyboard and focus', () => {
+  it('makes items focusable buttons and activates with Enter and Space', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const item = itemOf(container);
+    const selectionSources: string[] = [];
+    const clicks = vi.fn();
+    timeline.on('selectionChange', (event) => selectionSources.push(event.source));
+    timeline.on('itemClick', clicks);
+    expect(item.tabIndex).toBe(0);
+    expect(item.getAttribute('role')).toBe('button');
+    expect(item.getAttribute('aria-label')).toBe('Original item');
+
+    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    item.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+    expect(selectionSources).toEqual(['keyboard']);
+    expect(clicks).toHaveBeenCalledTimes(2);
+  });
+
+  it('restores item focus after rerender without stealing outside focus', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    itemOf(container).focus();
+    timeline.zoomIn();
+    flushFrame();
+    expect(document.activeElement).toBe(itemOf(container));
+
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    timeline.zoomOut();
+    flushFrame();
+    expect(document.activeElement).toBe(outside);
   });
 });

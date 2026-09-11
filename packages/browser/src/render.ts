@@ -2,13 +2,26 @@ import type { TimelineScene } from '@chronaxis/core';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+export interface RenderOptions {
+  selectedItemId: string | null;
+}
+
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   node.className = className;
   return node;
 }
 
-export function renderScene(root: HTMLElement, scene: TimelineScene): void {
+function findItem(root: HTMLElement, itemId: string): HTMLElement | undefined {
+  return [...root.querySelectorAll<HTMLElement>('[data-chronaxis-item-id]')]
+    .find((item) => item.dataset.chronaxisItemId === itemId);
+}
+
+export function renderScene(root: HTMLElement, scene: TimelineScene, options: RenderOptions): void {
+  const activeElement = root.ownerDocument.activeElement;
+  const focusedItemId = activeElement instanceof HTMLElement && root.contains(activeElement)
+    ? activeElement.closest<HTMLElement>('[data-chronaxis-item-id]')?.dataset.chronaxisItemId
+    : undefined;
   const fragment = document.createDocumentFragment();
   root.replaceChildren();
   root.style.height = `${scene.height}px`;
@@ -68,12 +81,22 @@ export function renderScene(root: HTMLElement, scene: TimelineScene): void {
     node.style.cssText = `left:${item.x}px;top:${item.y}px;width:${item.width}px;height:${item.height}px`;
     node.textContent = item.label ?? '';
     node.title = item.label ?? item.id;
-    node.dataset.itemId = item.id;
+    node.dataset.chronaxisItemId = item.id;
     node.dataset.rowId = item.rowId;
+    node.tabIndex = 0;
+    node.setAttribute('role', 'button');
+    node.setAttribute('aria-label', item.label ?? item.id);
+    const selected = item.id === options.selectedItemId;
+    node.setAttribute('aria-pressed', String(selected));
+    if (selected) {
+      node.dataset.selected = 'true';
+      node.classList.add('chronaxis-item--selected');
+    }
     if (item.clippedStart) node.classList.add('chronaxis-item-clipped-start');
     if (item.clippedEnd) node.classList.add('chronaxis-item-clipped-end');
     plot.append(node);
   }
   fragment.append(plot);
   root.append(fragment);
+  if (focusedItemId) findItem(root, focusedItemId)?.focus();
 }

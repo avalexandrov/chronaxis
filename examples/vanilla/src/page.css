@@ -11,4 +11,12 @@ h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spa
 .instructions { margin: 13px 0 15px; color: #6c7788; font-size: 13px; }
 .instructions span { margin: 0 5px; }
 #timeline { width: 100%; min-width: 0; box-shadow: 0 18px 50px rgb(56 68 94 / 12%); }
+.event-panel { margin-top: 18px; overflow: hidden; border: 1px solid #d5dce7; border-radius: 10px; background: #fff; box-shadow: 0 8px 30px rgb(56 68 94 / 8%); }
+.event-panel__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #e3e8ef; }
+.event-panel h2 { margin: 0; color: #273249; font-size: 14px; }
+.event-panel__heading span { color: #7b8696; font-size: 11px; }
+#event-log { min-height: 74px; max-height: 210px; margin: 0; padding: 8px 16px 8px 42px; overflow: auto; color: #414d61; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+#event-log:empty::before { content: "Interact with the timeline to see its public events."; display: block; margin-left: -26px; padding: 9px 0; color: #8a94a4; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+#event-log li { padding: 3px 0; }
+#event-log time { display: inline-block; min-width: 82px; color: #8a94a4; }
 @media (max-width: 640px) { main { width: calc(100% - 24px); padding: 40px 0; } }
