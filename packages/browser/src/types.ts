@@ -17,7 +17,7 @@ export interface ScrollToOptions {
   align?: ScrollAlignment;
 }
 
-export type SelectionChangeSource = 'pointer' | 'keyboard' | 'api';
+export type SelectionChangeSource = 'pointer' | 'keyboard' | 'api' | 'data';
 export type RangeChangeSource = 'setRange' | 'fit' | 'zoomIn' | 'zoomOut' | 'scrollTo' | 'wheel' | 'pan';
 
 export interface TimelineItemSnapshot<T = unknown> {
@@ -57,7 +57,15 @@ export interface TimelineOptions<T = unknown> extends Omit<LayoutOptions, 'width
   interactions?: TimelineInteractionOptions;
 }
 
+export interface TimelineData<T = unknown> {
+  rows: readonly TimelineRow[];
+  items: readonly TimelineItem<T>[];
+}
+
 export interface TimelineInstance<T = unknown> {
+  setItems(items: readonly TimelineItem<T>[]): void;
+  setRows(rows: readonly TimelineRow[]): void;
+  setData(data: TimelineData<T>): void;
   setRange(range: TimeRangeInput): void;
   getRange(): TimeRange;
   fit(): void;

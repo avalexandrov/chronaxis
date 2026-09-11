@@ -31,6 +31,9 @@ const timeline = createTimeline(container, {
 timeline.zoomIn();
 timeline.scrollTo('2026-03-01');
 timeline.selectItem('timeline');
+timeline.setItems(nextItems);
+timeline.setRows(nextRows);
+timeline.setData({ rows: nextRows, items: nextItems });
 
 const unsubscribe = timeline.on('selectionChange', ({ selectedItem, source }) => {
   console.log(selectedItem?.id ?? null, source);
@@ -42,16 +45,30 @@ unsubscribe();
 timeline.destroy();
 ```
 
-The browser instance supports `setRange()`, `getRange()`, `fit()`, `zoomIn()`,
-`zoomOut()`, `scrollTo()`, `selectItem()`, `clearSelection()`,
-`getSelectedItemId()`, `on()`, and `destroy()`. Selection is zero-or-one and is
-retained even while the selected item is outside the visible range. Selecting an
-unknown ID throws a validation error.
+The browser instance supports atomic runtime data replacement through
+`setItems()`, `setRows()`, and `setData()`, in addition to `setRange()`,
+`getRange()`, `fit()`, `zoomIn()`, `zoomOut()`, `scrollTo()`, `selectItem()`,
+`clearSelection()`, `getSelectedItemId()`, `on()`, and `destroy()`.
+
+`setItems()` validates against the current rows, while `setRows()` rejects rows
+that would orphan current items. Use `setData()` when rows and items need to
+change together. Each call validates and prepares the complete next state before
+committing it, owns copies of the supplied row/item records, normalizes item
+times once, preserves the viewport, and schedules rendering through the shared
+animation-frame scheduler. Failed updates leave all runtime state unchanged.
+Input item order remains DOM paint order for overlapping items.
+
+Selection is zero-or-one and is retained even while the selected item is outside
+the visible range. Selection follows a surviving item ID across metadata, date,
+and row changes. Removing the selected item clears selection synchronously and
+emits one `selectionChange` with source `data`. Selecting an unknown ID throws a
+validation error. `fit()` always uses the latest committed items and remains an
+explicit viewport operation.
 
 The typed event surface contains `rangeChange`, `selectionChange`, and
 `itemClick`. Item events carry a read-only, normalized public item snapshot while
 preserving the timeline's generic data type. Selection changes identify whether
-they came from `pointer`, `keyboard`, or `api`; range changes identify the
+they came from `pointer`, `keyboard`, `api`, or `data`; range changes identify the
 viewport operation that produced them. `itemClick` is an activation event and is
 emitted even when the activated item was already selected.
 
@@ -80,8 +97,10 @@ constrained by those interactive limits. When an explicit range is already
 outside a limit, zooming farther out is a no-op and the first zoom toward the
 supported range returns to the nearest bound.
 
-Time inputs are normalized once to millisecond timestamps when they enter the
-browser runtime. The layout engine consumes only normalized items and numeric
+Time inputs are normalized once to millisecond timestamps whenever they enter
+the browser runtime, including dynamic updates. Ordered arrays drive layout,
+while internal row-ID sets and item-ID maps support validation and identity
+lookup. The layout engine consumes only owned rows, normalized items, and numeric
 ranges; container width is supplied separately as projection geometry.
 
 Scene geometry for rows, items, ticks, and grid lines is plot-local. In that
@@ -92,6 +111,6 @@ Invalid inputs, non-positive ranges, non-positive scale widths, duplicate row
 IDs, duplicate item IDs, unknown item rows, and items whose end precedes their
 start throw an error.
 
-After `destroy()`, mutating methods and new subscriptions are safe no-ops, old
+After `destroy()`, all mutating methods, including data replacement, and new subscriptions are safe no-ops, old
 unsubscribe functions remain harmless, and no events are emitted. Snapshot
 getters continue to return the final range and selected item ID.

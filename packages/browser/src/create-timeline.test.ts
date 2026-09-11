@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { createTimeline } from './create-timeline.js';
+import type { TimelineItem } from '@chronaxis/core';
 import type { TimelineEventMap, TimelineInstance, TimelineOptions } from './types.js';
 
 interface ObserverRecord {
@@ -52,6 +53,11 @@ function rootOf(container: HTMLElement): HTMLElement {
 function itemOf(container: HTMLElement, itemId = 'item'): HTMLElement {
   return [...container.querySelectorAll<HTMLElement>('[data-chronaxis-item-id]')]
     .find((item) => item.dataset.chronaxisItemId === itemId)!;
+}
+
+function rowLabels(container: HTMLElement): string[] {
+  return [...container.querySelectorAll<HTMLElement>('.chronaxis-row-label')]
+    .map((row) => row.textContent ?? '');
 }
 
 function wheel(root: HTMLElement, options: WheelEventInit): WheelEvent {
@@ -502,12 +508,292 @@ describe('typed public events', () => {
     timeline.zoomIn();
     timeline.zoomOut();
     timeline.scrollTo(0);
+    timeline.setItems([]);
+    timeline.setRows([]);
+    timeline.setData({ rows: [], items: [] });
     timeline.on('selectionChange', selection)();
     unsubscribe();
     expect(timeline.getRange()).toEqual(before);
     expect(timeline.getSelectedItemId()).toBeNull();
     expect(selection).not.toHaveBeenCalled();
     expect(range).not.toHaveBeenCalled();
+  });
+});
+
+describe('dynamic data updates', () => {
+  it('replaces items atomically, normalizes times, owns inputs, and preserves the viewport', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const beforeRange = timeline.getRange();
+    const nextItems: TimelineItem<{ owner: string }>[] = [{
+      id: 'replacement',
+      rowId: 'row',
+      start: '2026-01-12T00:00:00Z',
+      end: '2026-01-20T00:00:00Z',
+      label: 'Replacement',
+      data: { owner: 'Bea' },
+    }];
+    timeline.setItems(nextItems);
+    nextItems[0]!.label = 'Caller mutation';
+    nextItems[0]!.start = '2030-01-01';
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(timeline.getRange()).toEqual(beforeRange);
+    flushFrame();
+
+    expect(itemOf(container, 'item')).toBeUndefined();
+    expect(itemOf(container, 'replacement').textContent).toBe('Replacement');
+    const clicks: TimelineEventMap<{ owner: string }>['itemClick'][] = [];
+    timeline.on('itemClick', (event) => clicks.push(event));
+    itemOf(container, 'replacement').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(clicks[0]?.item).toMatchObject({
+      start: Date.UTC(2026, 0, 12),
+      label: 'Replacement',
+      data: { owner: 'Bea' },
+    });
+  });
+
+  it('rejects invalid item updates without changing state, selection, events, or scheduling', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const changes = vi.fn();
+    timeline.on('selectionChange', changes);
+    timeline.selectItem('item');
+    flushFrame();
+    changes.mockClear();
+    vi.mocked(requestAnimationFrame).mockClear();
+
+    expect(() => timeline.setItems([
+      { id: 'duplicate', rowId: 'row', start: 0 },
+      { id: 'duplicate', rowId: 'row', start: 1 },
+    ])).toThrow(/Duplicate item ID/);
+    expect(() => timeline.setItems([
+      { id: 'orphan', rowId: 'missing', start: 0 },
+    ])).toThrow(/unknown row/);
+    expect(() => timeline.setItems([
+      { id: 'invalid', rowId: 'row', start: 'not a date' },
+    ])).toThrow(/Invalid time input/);
+    expect(() => timeline.setItems([
+      { id: 'backwards', rowId: 'row', start: 10, end: 5 },
+    ])).toThrow(/ends before/);
+
+    expect(timeline.getSelectedItemId()).toBe('item');
+    expect(itemOf(container).textContent).toBe('Original item');
+    expect(changes).not.toHaveBeenCalled();
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+  });
+
+  it('uses the latest items for fit', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    timeline.setItems([{
+      id: 'future', rowId: 'row', start: '2030-05-01', end: '2030-05-11',
+    }]);
+    timeline.fit();
+    const fitted = timeline.getRange();
+    expect(fitted.start).toBeLessThan(Date.UTC(2030, 4, 1));
+    expect(fitted.end).toBeGreaterThan(Date.UTC(2030, 4, 11));
+
+    timeline.setData({
+      rows: [{ id: 'later-row', label: 'Later' }],
+      items: [{ id: 'later', rowId: 'later-row', start: '2040-06-01', end: '2040-06-05' }],
+    });
+    timeline.fit();
+    const combinedFit = timeline.getRange();
+    expect(combinedFit.start).toBeLessThan(Date.UTC(2040, 5, 1));
+    expect(combinedFit.end).toBeGreaterThan(Date.UTC(2040, 5, 5));
+  });
+
+  it('replaces and reorders owned rows while preserving range and selection', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.rows = [
+      { id: 'row', label: 'First' },
+      { id: 'second', label: 'Second' },
+    ];
+    const timeline = createTimeline(container, options);
+    timeline.selectItem('item');
+    flushFrame();
+    const beforeRange = timeline.getRange();
+    const reordered = [
+      { id: 'second', label: 'Second moved' },
+      { id: 'row', label: 'First moved' },
+    ];
+    timeline.setRows(reordered);
+    reordered[0]!.label = 'Caller mutation';
+    flushFrame();
+
+    expect(rowLabels(container)).toEqual(['Second moved', 'First moved']);
+    expect(timeline.getRange()).toEqual(beforeRange);
+    expect(timeline.getSelectedItemId()).toBe('item');
+    expect(itemOf(container).dataset.selected).toBe('true');
+  });
+
+  it('rejects invalid rows and removal of referenced rows atomically', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    expect(() => timeline.setRows([
+      { id: 'row', label: 'One' },
+      { id: 'row', label: 'Two' },
+    ])).toThrow(/Duplicate row ID/);
+    expect(() => timeline.setRows([{ id: 'other', label: 'Other' }])).toThrow(/unknown row/);
+    expect(() => timeline.setRows([{ id: 'row', label: 'Invalid', height: 0 }])).toThrow(/must be positive/);
+    expect(() => timeline.setRows([{ id: '  ', label: 'Invalid' }])).toThrow(/non-empty string/);
+    expect(frames.size).toBe(0);
+    expect(rowLabels(container)).toEqual(['Original row']);
+  });
+
+  it('updates rows and items together and accepts an empty data set', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    timeline.setData({
+      rows: [{ id: 'new-row', label: 'New row' }],
+      items: [{ id: 'new-item', rowId: 'new-row', start: '2026-01-10', label: 'New item' }],
+    });
+    flushFrame();
+    expect(rowLabels(container)).toEqual(['New row']);
+    expect(itemOf(container, 'new-item').textContent).toBe('New item');
+
+    timeline.setData({ rows: [], items: [] });
+    flushFrame();
+    expect(rowLabels(container)).toEqual([]);
+    expect(container.querySelector('[data-chronaxis-item-id]')).toBeNull();
+  });
+
+  it('leaves both collections unchanged when a combined update fails', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    expect(() => timeline.setData({
+      rows: [{ id: 'new-row', label: 'New row' }],
+      items: [{ id: 'orphan', rowId: 'missing', start: 0 }],
+    })).toThrow(/unknown row/);
+    expect(frames.size).toBe(0);
+    expect(rowLabels(container)).toEqual(['Original row']);
+    expect(itemOf(container).textContent).toBe('Original item');
+  });
+
+  it('coalesces data calls and renders only the final committed state', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    timeline.setItems([{ id: 'first', rowId: 'row', start: '2026-01-06', label: 'First' }]);
+    timeline.setItems([{ id: 'second', rowId: 'row', start: '2026-01-07', label: 'Second' }]);
+    timeline.setRows([{ id: 'row', label: 'Final row' }]);
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    flushFrame();
+    expect(rowLabels(container)).toEqual(['Final row']);
+    expect(itemOf(container, 'first')).toBeUndefined();
+    expect(itemOf(container, 'second').textContent).toBe('Second');
+  });
+
+  it('preserves item input order as DOM paint order', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    timeline.setItems([
+      { id: 'bottom', rowId: 'row', start: '2026-01-06', end: '2026-01-08' },
+      { id: 'top', rowId: 'row', start: '2026-01-06', end: '2026-01-08' },
+    ]);
+    flushFrame();
+    expect([...container.querySelectorAll<HTMLElement>('[data-chronaxis-item-id]')]
+      .map((item) => item.dataset.chronaxisItemId)).toEqual(['bottom', 'top']);
+  });
+});
+
+describe('data reconciliation', () => {
+  it('keeps selection across metadata, date, and row changes without emitting a selection event', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.rows = [
+      { id: 'row', label: 'First' },
+      { id: 'second', label: 'Second' },
+    ];
+    const timeline = createTimeline(container, options);
+    const changes = vi.fn();
+    timeline.on('selectionChange', changes);
+    timeline.selectItem('item');
+    changes.mockClear();
+    timeline.setItems([{
+      id: 'item', rowId: 'second', start: '2026-01-15', end: '2026-01-20',
+      label: 'Updated item', data: { owner: 'Casey' },
+    }]);
+    flushFrame();
+
+    expect(timeline.getSelectedItemId()).toBe('item');
+    expect(itemOf(container)).toMatchObject({ textContent: 'Updated item' });
+    expect(itemOf(container).dataset.rowId).toBe('second');
+    expect(itemOf(container).dataset.selected).toBe('true');
+    expect(changes).not.toHaveBeenCalled();
+  });
+
+  it('clears a removed selection synchronously exactly once with data source', () => {
+    const timeline = createTimeline(containerAt(600), timelineOptions());
+    const changes: TimelineEventMap<{ owner: string }>['selectionChange'][] = [];
+    timeline.selectItem('item');
+    timeline.on('selectionChange', (event) => changes.push(event));
+    timeline.setItems([]);
+
+    expect(timeline.getSelectedItemId()).toBeNull();
+    expect(changes).toEqual([{ selectedItem: null, source: 'data' }]);
+    expect(frames.size).toBe(1);
+  });
+
+  it('emits current item snapshots after replacement', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const clicks: TimelineEventMap<{ owner: string }>['itemClick'][] = [];
+    timeline.on('itemClick', (event) => clicks.push(event));
+    timeline.setItems([{
+      id: 'item', rowId: 'row', start: '2026-01-08', end: '2026-01-12',
+      label: 'New snapshot', data: { owner: 'Dana' },
+    }]);
+    flushFrame();
+    itemOf(container).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(clicks[0]?.item).toMatchObject({
+      label: 'New snapshot', data: { owner: 'Dana' },
+      start: Date.UTC(2026, 0, 8),
+    });
+  });
+
+  it('restores focused items by ID after data changes and does not restore removed items', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.rows = [{ id: 'row', label: 'First' }, { id: 'second', label: 'Second' }];
+    const timeline = createTimeline(container, options);
+    itemOf(container).focus();
+    timeline.setItems([{
+      id: 'item', rowId: 'second', start: '2026-01-12', end: '2026-01-18', label: 'Moved', data: { owner: 'Alex' },
+    }]);
+    flushFrame();
+    expect(document.activeElement).toBe(itemOf(container));
+    expect(itemOf(container).dataset.rowId).toBe('second');
+
+    timeline.setItems([]);
+    flushFrame();
+    expect(document.activeElement?.getAttribute('data-chronaxis-item-id')).toBeNull();
+  });
+
+  it('does not steal outside focus during a data update', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    timeline.setItems([{ id: 'item', rowId: 'row', start: 0, label: 'Updated' }]);
+    flushFrame();
+    expect(document.activeElement).toBe(outside);
+  });
+});
+
+describe('dynamic data typing', () => {
+  it('preserves the instance generic for inputs and updated event snapshots', () => {
+    type ProjectTask = { owner: string; status: 'active' | 'done' };
+    expectTypeOf<TimelineInstance<ProjectTask>['setItems']>()
+      .parameter(0).toEqualTypeOf<readonly TimelineItem<ProjectTask>[]>();
+    expectTypeOf<TimelineEventMap<ProjectTask>['itemClick']['item']['data']>()
+      .toEqualTypeOf<ProjectTask | undefined>();
+
+    if (false) {
+      const typedTimeline = null as unknown as TimelineInstance<ProjectTask>;
+      // @ts-expect-error Incorrect item data is rejected by the instance generic.
+      typedTimeline.setItems([{ id: 'x', rowId: 'row', start: 0, data: { priority: 1 } }]);
+    }
   });
 });
 

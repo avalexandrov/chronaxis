@@ -14,6 +14,7 @@ import type {
   TimeInput,
   TimeRange,
   TimeRangeInput,
+  TimelineItem,
   TimelineRow,
   TimelineScene,
   ZoomLimits,
@@ -24,6 +25,7 @@ import type {
   ScrollToOptions,
   SelectionChangeSource,
   TimelineEventMap,
+  TimelineData,
   TimelineInstance,
   TimelineItemSnapshot,
   TimelineOptions,
@@ -42,6 +44,7 @@ const PAN_THRESHOLD = 4;
 interface RuntimeState<T> {
   range: TimeRange;
   rows: TimelineRow[];
+  rowIds: Set<string>;
   items: NormalizedTimelineItem<T>[];
   itemsById: Map<string, NormalizedTimelineItem<T>>;
   selectedItemId: string | null;
@@ -50,6 +53,18 @@ interface RuntimeState<T> {
   panEnabled: boolean;
   wheelZoom: WheelZoomMode;
 }
+
+interface PreparedRows {
+  rows: TimelineRow[];
+  rowIds: Set<string>;
+}
+
+interface PreparedItems<T> {
+  items: NormalizedTimelineItem<T>[];
+  itemsById: Map<string, NormalizedTimelineItem<T>>;
+}
+
+interface PreparedData<T> extends PreparedRows, PreparedItems<T> {}
 
 interface PointerGesture {
   pointerId: number;
@@ -84,6 +99,47 @@ function itemSnapshot<T>(item: NormalizedTimelineItem<T>): TimelineItemSnapshot<
   });
 }
 
+function validateId(value: string, name: string): void {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new TypeError(`${name} must be a non-empty string.`);
+  }
+}
+
+function prepareRows(rows: readonly TimelineRow[]): PreparedRows {
+  const ownedRows: TimelineRow[] = [];
+  const rowIds = new Set<string>();
+  for (const row of rows) {
+    validateId(row.id, 'Timeline row ID');
+    if (rowIds.has(row.id)) throw new Error(`Duplicate row ID: ${row.id}`);
+    if (row.height !== undefined && (!Number.isFinite(row.height) || row.height <= 0)) {
+      throw new RangeError(`Height for row "${row.id}" must be positive.`);
+    }
+    rowIds.add(row.id);
+    ownedRows.push({ ...row });
+  }
+  return { rows: ownedRows, rowIds };
+}
+
+function prepareItems<T>(items: readonly TimelineItem<T>[], rowIds: ReadonlySet<string>): PreparedItems<T> {
+  const normalizedItems = normalizeItems(items);
+  const itemsById = new Map<string, NormalizedTimelineItem<T>>();
+  for (const item of normalizedItems) {
+    validateId(item.id, 'Timeline item ID');
+    validateId(item.rowId, `Row ID for timeline item "${item.id}"`);
+    if (itemsById.has(item.id)) throw new Error(`Duplicate item ID: ${item.id}`);
+    if (!rowIds.has(item.rowId)) {
+      throw new Error(`Timeline item "${item.id}" references unknown row "${item.rowId}".`);
+    }
+    itemsById.set(item.id, item);
+  }
+  return { items: normalizedItems, itemsById };
+}
+
+function prepareData<T>(data: TimelineData<T>): PreparedData<T> {
+  const preparedRows = prepareRows(data.rows);
+  return { ...preparedRows, ...prepareItems(data.items, preparedRows.rowIds) };
+}
+
 function createRuntimeState<T>(options: TimelineOptions<T>): RuntimeState<T> {
   const minDuration = positiveDuration(
     options.viewport?.minZoomDuration ?? DEFAULT_MIN_ZOOM_DURATION,
@@ -97,18 +153,14 @@ function createRuntimeState<T>(options: TimelineOptions<T>): RuntimeState<T> {
     throw new RangeError('Maximum zoom duration must not be less than minimum zoom duration.');
   }
 
-  const items = normalizeItems(options.items);
-  const itemsById = new Map<string, NormalizedTimelineItem<T>>();
-  for (const item of items) {
-    if (itemsById.has(item.id)) throw new Error(`Duplicate item ID: ${item.id}`);
-    itemsById.set(item.id, item);
-  }
+  const data = prepareData({ rows: options.rows, items: options.items });
 
   return {
     range: normalizeRange(options.range),
-    rows: options.rows.map((row) => ({ ...row })),
-    items,
-    itemsById,
+    rows: data.rows,
+    rowIds: data.rowIds,
+    items: data.items,
+    itemsById: data.itemsById,
     selectedItemId: null,
     layoutOptions: {
       defaultRowHeight: options.defaultRowHeight,
@@ -223,6 +275,34 @@ export function createTimeline<T>(container: HTMLElement, options: TimelineOptio
     if (!item) return;
     selectItem(itemId, source);
     emit('itemClick', Object.freeze({ item: itemSnapshot(item) }));
+  };
+
+  const reconcileSelection = () => {
+    if (state.selectedItemId === null || state.itemsById.has(state.selectedItemId)) return;
+    state.selectedItemId = null;
+    emit('selectionChange', Object.freeze({ selectedItem: null, source: 'data' }));
+  };
+
+  const commitItems = (prepared: PreparedItems<T>) => {
+    state.items = prepared.items;
+    state.itemsById = prepared.itemsById;
+    reconcileSelection();
+    scheduleRender();
+  };
+
+  const commitRows = (prepared: PreparedRows) => {
+    state.rows = prepared.rows;
+    state.rowIds = prepared.rowIds;
+    scheduleRender();
+  };
+
+  const commitData = (prepared: PreparedData<T>) => {
+    state.rows = prepared.rows;
+    state.rowIds = prepared.rowIds;
+    state.items = prepared.items;
+    state.itemsById = prepared.itemsById;
+    reconcileSelection();
+    scheduleRender();
   };
 
   const plotPosition = (event: MouseEvent): { localX: number; scene: TimelineScene } | null => {
@@ -354,6 +434,24 @@ export function createTimeline<T>(container: HTMLElement, options: TimelineOptio
   }
 
   return {
+    setItems(items: readonly TimelineItem<T>[]) {
+      if (destroyed) return;
+      commitItems(prepareItems(items, state.rowIds));
+    },
+    setRows(rows: readonly TimelineRow[]) {
+      if (destroyed) return;
+      const prepared = prepareRows(rows);
+      for (const item of state.items) {
+        if (!prepared.rowIds.has(item.rowId)) {
+          throw new Error(`Timeline item "${item.id}" references unknown row "${item.rowId}".`);
+        }
+      }
+      commitRows(prepared);
+    },
+    setData(data: TimelineData<T>) {
+      if (destroyed) return;
+      commitData(prepareData(data));
+    },
     setRange(range: TimeRangeInput) {
       if (destroyed) return;
       updateRange(normalizeRange(range), 'setRange');

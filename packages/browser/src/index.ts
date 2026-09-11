@@ -10,6 +10,7 @@ export type {
   SelectionChangeEvent,
   SelectionChangeSource,
   TimelineEventMap,
+  TimelineData,
   TimelineInstance,
   TimelineInteractionOptions,
   TimelineItemSnapshot,
