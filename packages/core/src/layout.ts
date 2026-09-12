@@ -65,6 +65,8 @@ export function layoutTimeline<T>(input: TimelineLayoutInput<T>): TimelineScene 
   const interval = selectTickInterval(range.end - range.start, plotWidth);
   const ticks = generateTickTimes(range, interval).map((time) => ({
     time,
+    unit: interval.unit,
+    step: interval.step,
     label: formatTick(time, interval),
     x: timeToX(time, scale),
   }));

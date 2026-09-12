@@ -1,4 +1,4 @@
-import type { LayoutOptions, TimeInput, TimeRange, TimeRangeInput, TimelineItem, TimelineRow } from '@chronaxis/core';
+import type { LayoutOptions, TickUnit, TimeInput, TimeRange, TimeRangeInput, TimelineItem, TimelineRow } from '@chronaxis/core';
 
 export type WheelZoomMode = 'modifier' | 'always' | false;
 export type ScrollAlignment = 'start' | 'center' | 'end';
@@ -29,6 +29,32 @@ export interface TimelineItemSnapshot<T = unknown> {
   readonly data?: T;
 }
 
+export interface TimelineRowSnapshot {
+  readonly id: string;
+  readonly label: string;
+  readonly height?: number;
+}
+
+export interface ItemRenderContext {
+  readonly selected: boolean;
+}
+
+export interface TickFormatContext {
+  readonly time: number;
+  readonly unit: TickUnit;
+  readonly step: number;
+  readonly defaultLabel: string;
+}
+
+export type ItemRenderer<T = unknown> = (
+  item: TimelineItemSnapshot<T>,
+  context: ItemRenderContext,
+) => Node | string | null;
+export type RowLabelRenderer = (row: TimelineRowSnapshot) => Node | string | null;
+export type TickFormatter = (context: TickFormatContext) => string;
+export type ItemClassNameGetter<T = unknown> = (item: TimelineItemSnapshot<T>) => string | undefined;
+export type RowClassNameGetter = (row: TimelineRowSnapshot) => string | undefined;
+
 export interface RangeChangeEvent {
   readonly range: Readonly<TimeRange>;
   readonly source: RangeChangeSource;
@@ -55,6 +81,11 @@ export interface TimelineOptions<T = unknown> extends Omit<LayoutOptions, 'width
   items: readonly TimelineItem<T>[];
   viewport?: TimelineViewportOptions;
   interactions?: TimelineInteractionOptions;
+  renderItem?: ItemRenderer<T>;
+  renderRowLabel?: RowLabelRenderer;
+  formatTick?: TickFormatter;
+  getItemClassName?: ItemClassNameGetter<T>;
+  getRowClassName?: RowClassNameGetter;
 }
 
 export interface TimelineData<T = unknown> {

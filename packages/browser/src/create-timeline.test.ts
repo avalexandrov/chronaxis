@@ -2,7 +2,13 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { createTimeline } from './create-timeline.js';
 import type { TimelineItem } from '@chronaxis/core';
-import type { TimelineEventMap, TimelineInstance, TimelineOptions } from './types.js';
+import type {
+  ItemRenderContext,
+  TimelineEventMap,
+  TimelineInstance,
+  TimelineItemSnapshot,
+  TimelineOptions,
+} from './types.js';
 
 interface ObserverRecord {
   callback: ResizeObserverCallback;
@@ -793,6 +799,280 @@ describe('dynamic data typing', () => {
       const typedTimeline = null as unknown as TimelineInstance<ProjectTask>;
       // @ts-expect-error Incorrect item data is rejected by the instance generic.
       typedTimeline.setItems([{ id: 'x', rowId: 'row', start: 0, data: { priority: 1 } }]);
+    }
+  });
+});
+
+describe('rendering customization', () => {
+  it('preserves default item, row, and tick labels without callbacks', () => {
+    const container = containerAt(600);
+    createTimeline(container, timelineOptions());
+    expect(itemOf(container).textContent).toBe('Original item');
+    expect(rowLabels(container)).toEqual(['Original row']);
+    expect(container.querySelector('.chronaxis-tick-label')?.textContent).toBe('Jan 5');
+  });
+
+  it('renders custom strings as text inside the Chronaxis-owned item root', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.renderItem = () => '<strong>Safe text</strong>';
+    createTimeline(container, options);
+    const item = itemOf(container);
+
+    expect(item.textContent).toBe('<strong>Safe text</strong>');
+    expect(item.querySelector('strong')).toBeNull();
+    expect(item.classList.contains('chronaxis-item')).toBe(true);
+    expect(item.dataset.chronaxisItemId).toBe('item');
+    expect(item.getAttribute('role')).toBe('button');
+    expect(item.tabIndex).toBe(0);
+    expect(item.getAttribute('aria-pressed')).toBe('false');
+    expect(item.getAttribute('aria-label')).toBe('Original item');
+  });
+
+  it('accepts HTMLElement, Text, DocumentFragment, and null contents', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.items = [
+      { id: 'element', rowId: 'row', start: '2026-01-05', label: 'Element' },
+      { id: 'text', rowId: 'row', start: '2026-01-10', label: 'Text' },
+      { id: 'fragment', rowId: 'row', start: '2026-01-15', label: 'Fragment' },
+      { id: 'empty', rowId: 'row', start: '2026-01-20', label: 'Empty' },
+    ];
+    options.renderItem = (item) => {
+      if (item.id === 'element') {
+        const strong = container.ownerDocument.createElement('strong');
+        strong.textContent = 'Strong';
+        return strong;
+      }
+      if (item.id === 'text') return container.ownerDocument.createTextNode('Text node');
+      if (item.id === 'fragment') {
+        const fragment = container.ownerDocument.createDocumentFragment();
+        fragment.append('First', container.ownerDocument.createElement('span'));
+        return fragment;
+      }
+      return null;
+    };
+    createTimeline(container, options);
+
+    expect(itemOf(container, 'element').querySelector('strong')?.textContent).toBe('Strong');
+    expect(itemOf(container, 'text').textContent).toBe('Text node');
+    expect(itemOf(container, 'fragment').textContent).toBe('First');
+    expect(itemOf(container, 'empty').textContent).toBe('');
+  });
+
+  it('provides immutable typed snapshots and current selected context', () => {
+    const container = containerAt(600);
+    const calls: Array<{ item: TimelineItemSnapshot<{ owner: string }>; context: ItemRenderContext }> = [];
+    const options = timelineOptions();
+    options.renderItem = (item, context) => {
+      calls.push({ item, context });
+      return `${item.data?.owner}:${context.selected}`;
+    };
+    const timeline = createTimeline(container, options);
+    expect(itemOf(container).textContent).toBe('Alex:false');
+    expect(Object.isFrozen(calls[0]?.item)).toBe(true);
+    expect(Object.isFrozen(calls[0]?.context)).toBe(true);
+
+    timeline.selectItem('item');
+    flushFrame();
+    expect(itemOf(container).textContent).toBe('Alex:true');
+    expect(itemOf(container).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('uses the latest item snapshot and classes after setItems', () => {
+    const container = containerAt(600);
+    const seenLabels: string[] = [];
+    const options = timelineOptions();
+    options.renderItem = (item) => {
+      seenLabels.push(item.label ?? '');
+      return item.label ?? null;
+    };
+    options.getItemClassName = (item) => `status-${item.data?.owner.toLowerCase()}  emphasized`;
+    const timeline = createTimeline(container, options);
+    timeline.setItems([{
+      id: 'item', rowId: 'row', start: '2026-01-08', label: 'Updated', data: { owner: 'Bea' },
+    }]);
+    flushFrame();
+
+    const item = itemOf(container);
+    expect(seenLabels.at(-1)).toBe('Updated');
+    expect(item.textContent).toBe('Updated');
+    expect(item.classList.contains('chronaxis-item')).toBe(true);
+    expect(item.classList.contains('status-bea')).toBe(true);
+    expect(item.classList.contains('emphasized')).toBe(true);
+  });
+
+  it('customizes row label contents and classes using current row snapshots', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.renderRowLabel = (row) => {
+      const fragment = container.ownerDocument.createDocumentFragment();
+      const strong = container.ownerDocument.createElement('strong');
+      strong.textContent = row.label;
+      fragment.append('◆ ', strong);
+      return fragment;
+    };
+    options.getRowClassName = (row) => `team-${row.id} highlighted`;
+    const timeline = createTimeline(container, options);
+    let row = container.querySelector<HTMLElement>('.chronaxis-row')!;
+    expect(row.dataset.chronaxisRowId).toBe('row');
+    expect(row.classList.contains('chronaxis-row')).toBe(true);
+    expect(row.classList.contains('team-row')).toBe(true);
+    expect(row.querySelector('strong')?.textContent).toBe('Original row');
+
+    timeline.setRows([{ id: 'row', label: 'Updated row' }]);
+    flushFrame();
+    row = container.querySelector<HTMLElement>('.chronaxis-row')!;
+    expect(row.querySelector('strong')?.textContent).toBe('Updated row');
+  });
+
+  it('supports string and null row-label render results', () => {
+    const stringOptions = timelineOptions();
+    stringOptions.renderRowLabel = (row) => `<${row.label}>`;
+    const stringContainer = containerAt(600);
+    createTimeline(stringContainer, stringOptions);
+    expect(stringContainer.querySelector('.chronaxis-row-label')?.textContent).toBe('<Original row>');
+
+    const nullOptions = timelineOptions();
+    nullOptions.renderRowLabel = () => null;
+    const nullContainer = containerAt(600);
+    createTimeline(nullContainer, nullOptions);
+    expect(nullContainer.querySelector('.chronaxis-row-label')?.textContent).toBe('');
+  });
+
+  it('formats ticks with immutable public interval metadata across granularities', () => {
+    const container = containerAt(600);
+    const contexts: Array<{ unit: string; step: number; defaultLabel: string; frozen: boolean }> = [];
+    const options = timelineOptions();
+    options.formatTick = (context) => {
+      contexts.push({
+        unit: context.unit,
+        step: context.step,
+        defaultLabel: context.defaultLabel,
+        frozen: Object.isFrozen(context),
+      });
+      return `${context.unit}:${context.step}`;
+    };
+    const timeline = createTimeline(container, options);
+    expect(container.querySelector('.chronaxis-tick-label')?.textContent).toMatch(/^(day|week):/);
+    expect(contexts.every((context) => context.frozen && context.defaultLabel.length > 0)).toBe(true);
+    const initialUnit = contexts[0]?.unit;
+
+    contexts.length = 0;
+    timeline.setRange({ start: 0, end: 60 * 60 * 1000 });
+    flushFrame();
+    expect(contexts[0]?.unit).not.toBe(initialUnit);
+    expect(container.querySelector('.chronaxis-tick-label')?.textContent).toMatch(/^(minute|hour):/);
+  });
+
+  it('leaves the live DOM intact after an item renderer failure and recovers later', () => {
+    const container = containerAt(600);
+    let shouldThrow = false;
+    const options = timelineOptions();
+    options.renderItem = (item) => {
+      if (shouldThrow) throw new Error('Item renderer failed');
+      return item.label ?? null;
+    };
+    const timeline = createTimeline(container, options);
+    shouldThrow = true;
+    timeline.setItems([{
+      id: 'item', rowId: 'row', start: '2026-01-15', label: 'Committed update', data: { owner: 'Alex' },
+    }]);
+    expect(flushFrame).toThrow('Item renderer failed');
+    expect(itemOf(container).textContent).toBe('Original item');
+    expect(timeline.getSelectedItemId()).toBeNull();
+
+    shouldThrow = false;
+    timeline.zoomIn();
+    flushFrame();
+    expect(itemOf(container).textContent).toBe('Committed update');
+  });
+
+  it('leaves the live DOM intact after a row renderer failure and recovers later', () => {
+    const container = containerAt(600);
+    let shouldThrow = false;
+    const options = timelineOptions();
+    options.renderRowLabel = (row) => {
+      if (shouldThrow) throw new Error('Row renderer failed');
+      return row.label;
+    };
+    const timeline = createTimeline(container, options);
+    shouldThrow = true;
+    timeline.setRows([{ id: 'row', label: 'Committed row' }]);
+    expect(flushFrame).toThrow('Row renderer failed');
+    expect(rowLabels(container)).toEqual(['Original row']);
+
+    shouldThrow = false;
+    timeline.zoomIn();
+    flushFrame();
+    expect(rowLabels(container)).toEqual(['Committed row']);
+  });
+
+  it('preserves activation, focus, panning, zooming, and data updates with custom contents', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.renderItem = (item) => {
+      const span = container.ownerDocument.createElement('span');
+      span.textContent = item.label ?? item.id;
+      return span;
+    };
+    const timeline = createTimeline(container, options);
+    const clicks = vi.fn();
+    timeline.on('itemClick', clicks);
+    itemOf(container).focus();
+    itemOf(container).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    flushFrame();
+    expect(clicks).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(itemOf(container));
+
+    const beforePan = timeline.getRange();
+    pointer(rootOf(container), 'pointerdown', { clientX: 350 });
+    pointer(rootOf(container), 'pointermove', { clientX: 375 });
+    pointer(rootOf(container), 'pointerup', { clientX: 375 });
+    expect(timeline.getRange()).not.toEqual(beforePan);
+    flushFrame();
+    expect(document.activeElement).toBe(itemOf(container));
+    timeline.zoomIn();
+    flushFrame();
+    expect(document.activeElement).toBe(itemOf(container));
+    timeline.setItems([{
+      id: 'item', rowId: 'row', start: '2026-01-07', label: 'Still interactive', data: { owner: 'Alex' },
+    }]);
+    flushFrame();
+    expect(itemOf(container).querySelector('span')?.textContent).toBe('Still interactive');
+  });
+
+  it('keeps inline geometry stable when public theme variables are overridden', () => {
+    const container = containerAt(600);
+    const timeline = createTimeline(container, timelineOptions());
+    const before = itemOf(container).style.cssText;
+    container.style.setProperty('--chronaxis-item-border-color', '#000');
+    container.style.setProperty('--chronaxis-item-border-radius', '12px');
+    container.style.setProperty('--chronaxis-font-family', 'serif');
+    notifyResize();
+    flushFrame();
+    expect(itemOf(container).style.cssText).toBe(before);
+    expect(timeline.getRange()).toEqual({
+      start: Date.UTC(2026, 0, 1),
+      end: Date.UTC(2026, 1, 1),
+    });
+  });
+});
+
+describe('customization typing', () => {
+  it('preserves item data types in rendering and class hooks', () => {
+    type DemoData = { owner: string; status: 'active' | 'done' };
+    type Options = TimelineOptions<DemoData>;
+    expectTypeOf<NonNullable<Options['renderItem']>>()
+      .parameter(0).toEqualTypeOf<TimelineItemSnapshot<DemoData>>();
+    expectTypeOf<NonNullable<Options['getItemClassName']>>()
+      .parameter(0).toEqualTypeOf<TimelineItemSnapshot<DemoData>>();
+
+    if (false) {
+      const renderItem = null as unknown as NonNullable<Options['renderItem']>;
+      renderItem({} as TimelineItemSnapshot<DemoData>, { selected: false });
+      // @ts-expect-error DemoData does not contain priority.
+      renderItem({ data: { priority: 1 } } as TimelineItemSnapshot<DemoData>, { selected: false });
     }
   });
 });

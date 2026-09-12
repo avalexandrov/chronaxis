@@ -45,6 +45,89 @@ unsubscribe();
 timeline.destroy();
 ```
 
+## Customization
+
+Customization is configured when the timeline is created through focused,
+framework-independent DOM hooks:
+
+```ts
+const timeline = createTimeline<ProjectTask>(container, {
+  range,
+  rows,
+  items,
+
+  renderItem(item, { selected }) {
+    const content = container.ownerDocument.createElement('strong');
+    content.textContent = `${selected ? '● ' : ''}${item.label ?? item.id}`;
+    return content;
+  },
+
+  renderRowLabel(row) {
+    return `Team: ${row.label}`;
+  },
+
+  formatTick({ time, unit, defaultLabel }) {
+    return unit === 'month' ? customMonthFormatter(time) : defaultLabel;
+  },
+
+  getItemClassName(item) {
+    return item.data?.status === 'delayed' ? 'is-delayed' : undefined;
+  },
+
+  getRowClassName(row) {
+    return `team-${row.id}`;
+  },
+});
+```
+
+`renderItem()` controls only the contents of the Chronaxis-owned item element;
+geometry, identity, selection, focus, ARIA state, and activation remain owned by
+Chronaxis. Strings are always rendered as text, while DOM `Node` values enable
+rich presentational content. `renderRowLabel()` follows the same content-only
+contract for the owned row-label wrapper. These are plain DOM hooks, not
+framework component adapters, and nested interactive controls are not supported.
+
+Rendering and class callbacks receive frozen public snapshots with the current
+runtime data. They may run during any Chronaxis render, including navigation,
+resize, selection, and data updates, so they should be presentation-only and
+must not rely on invocation counts or perform side effects.
+
+The default ruler continues to use core's UTC calendar boundaries and English
+UTC labels. `formatTick()` changes presentation only and receives `time`,
+`unit`, `step`, and `defaultLabel`; it does not change tick boundaries or imply a
+timezone system.
+
+The supported visual theme properties are:
+
+```css
+.my-timeline {
+  --chronaxis-font-family: system-ui;
+  --chronaxis-font-size: 13px;
+  --chronaxis-background: #fff;
+  --chronaxis-text-color: #172033;
+  --chronaxis-muted-text-color: #5f6b7a;
+  --chronaxis-border-color: #dbe3ed;
+  --chronaxis-grid-color: #dfe6ee;
+  --chronaxis-row-border-color: #dbe3ed;
+  --chronaxis-row-alt-background: #f8fafc;
+  --chronaxis-ruler-background: #f3f6fa;
+  --chronaxis-ruler-border-color: #dbe3ed;
+  --chronaxis-item-background: #5367e8;
+  --chronaxis-item-text-color: #fff;
+  --chronaxis-item-border-color: transparent;
+  --chronaxis-item-border-radius: 5px;
+  --chronaxis-item-selected-outline: 0 0 0 3px #fff, 0 0 0 6px #29378f;
+  --chronaxis-focus-ring: 3px solid rgb(23 32 51 / 35%);
+}
+```
+
+These properties are intentionally visual and do not alter layout geometry.
+Stable styling hooks are `.chronaxis`, `.chronaxis-ruler`, `.chronaxis-grid`,
+`.chronaxis-row`, `.chronaxis-row-label`, `.chronaxis-item`, and
+`.chronaxis-item--selected`. Item and row identity are exposed through
+`data-chronaxis-item-id` and `data-chronaxis-row-id`; consumer item data is never
+serialized into the DOM.
+
 The browser instance supports atomic runtime data replacement through
 `setItems()`, `setRows()`, and `setData()`, in addition to `setRange()`,
 `getRange()`, `fit()`, `zoomIn()`, `zoomOut()`, `scrollTo()`, `selectItem()`,
@@ -111,6 +194,7 @@ Invalid inputs, non-positive ranges, non-positive scale widths, duplicate row
 IDs, duplicate item IDs, unknown item rows, and items whose end precedes their
 start throw an error.
 
-After `destroy()`, all mutating methods, including data replacement, and new subscriptions are safe no-ops, old
-unsubscribe functions remain harmless, and no events are emitted. Snapshot
-getters continue to return the final range and selected item ID.
+After `destroy()`, all mutating methods, including data replacement, and new
+subscriptions are safe no-ops, old unsubscribe functions remain harmless, and
+no events are emitted. Snapshot getters continue to return the final range and
+selected item ID.

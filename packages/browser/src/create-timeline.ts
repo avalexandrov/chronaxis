@@ -20,6 +20,7 @@ import type {
   ZoomLimits,
 } from '@chronaxis/core';
 import { renderScene } from './render.js';
+import { itemSnapshot } from './snapshots.js';
 import type {
   RangeChangeSource,
   ScrollToOptions,
@@ -27,7 +28,6 @@ import type {
   TimelineEventMap,
   TimelineData,
   TimelineInstance,
-  TimelineItemSnapshot,
   TimelineOptions,
   WheelZoomMode,
 } from './types.js';
@@ -44,7 +44,7 @@ const PAN_THRESHOLD = 4;
 interface RuntimeState<T> {
   range: TimeRange;
   rows: TimelineRow[];
-  rowIds: Set<string>;
+  rowsById: Map<string, TimelineRow>;
   items: NormalizedTimelineItem<T>[];
   itemsById: Map<string, NormalizedTimelineItem<T>>;
   selectedItemId: string | null;
@@ -56,7 +56,7 @@ interface RuntimeState<T> {
 
 interface PreparedRows {
   rows: TimelineRow[];
-  rowIds: Set<string>;
+  rowsById: Map<string, TimelineRow>;
 }
 
 interface PreparedItems<T> {
@@ -88,17 +88,6 @@ function rangeSnapshot(range: TimeRange): Readonly<TimeRange> {
   return Object.freeze({ start: range.start, end: range.end });
 }
 
-function itemSnapshot<T>(item: NormalizedTimelineItem<T>): TimelineItemSnapshot<T> {
-  return Object.freeze({
-    id: item.id,
-    rowId: item.rowId,
-    start: item.start,
-    end: item.end,
-    label: item.label,
-    data: item.data,
-  });
-}
-
 function validateId(value: string, name: string): void {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new TypeError(`${name} must be a non-empty string.`);
@@ -107,27 +96,28 @@ function validateId(value: string, name: string): void {
 
 function prepareRows(rows: readonly TimelineRow[]): PreparedRows {
   const ownedRows: TimelineRow[] = [];
-  const rowIds = new Set<string>();
+  const rowsById = new Map<string, TimelineRow>();
   for (const row of rows) {
     validateId(row.id, 'Timeline row ID');
-    if (rowIds.has(row.id)) throw new Error(`Duplicate row ID: ${row.id}`);
+    if (rowsById.has(row.id)) throw new Error(`Duplicate row ID: ${row.id}`);
     if (row.height !== undefined && (!Number.isFinite(row.height) || row.height <= 0)) {
       throw new RangeError(`Height for row "${row.id}" must be positive.`);
     }
-    rowIds.add(row.id);
-    ownedRows.push({ ...row });
+    const ownedRow = { ...row };
+    rowsById.set(row.id, ownedRow);
+    ownedRows.push(ownedRow);
   }
-  return { rows: ownedRows, rowIds };
+  return { rows: ownedRows, rowsById };
 }
 
-function prepareItems<T>(items: readonly TimelineItem<T>[], rowIds: ReadonlySet<string>): PreparedItems<T> {
+function prepareItems<T>(items: readonly TimelineItem<T>[], rowsById: ReadonlyMap<string, TimelineRow>): PreparedItems<T> {
   const normalizedItems = normalizeItems(items);
   const itemsById = new Map<string, NormalizedTimelineItem<T>>();
   for (const item of normalizedItems) {
     validateId(item.id, 'Timeline item ID');
     validateId(item.rowId, `Row ID for timeline item "${item.id}"`);
     if (itemsById.has(item.id)) throw new Error(`Duplicate item ID: ${item.id}`);
-    if (!rowIds.has(item.rowId)) {
+    if (!rowsById.has(item.rowId)) {
       throw new Error(`Timeline item "${item.id}" references unknown row "${item.rowId}".`);
     }
     itemsById.set(item.id, item);
@@ -137,7 +127,7 @@ function prepareItems<T>(items: readonly TimelineItem<T>[], rowIds: ReadonlySet<
 
 function prepareData<T>(data: TimelineData<T>): PreparedData<T> {
   const preparedRows = prepareRows(data.rows);
-  return { ...preparedRows, ...prepareItems(data.items, preparedRows.rowIds) };
+  return { ...preparedRows, ...prepareItems(data.items, preparedRows.rowsById) };
 }
 
 function createRuntimeState<T>(options: TimelineOptions<T>): RuntimeState<T> {
@@ -158,7 +148,7 @@ function createRuntimeState<T>(options: TimelineOptions<T>): RuntimeState<T> {
   return {
     range: normalizeRange(options.range),
     rows: data.rows,
-    rowIds: data.rowIds,
+    rowsById: data.rowsById,
     items: data.items,
     itemsById: data.itemsById,
     selectedItemId: null,
@@ -229,7 +219,16 @@ export function createTimeline<T>(container: HTMLElement, options: TimelineOptio
       items: state.items,
       options: { ...state.layoutOptions, width },
     });
-    renderScene(root, nextScene, { selectedItemId: state.selectedItemId });
+    renderScene(root, nextScene, {
+      selectedItemId: state.selectedItemId,
+      rowsById: state.rowsById,
+      itemsById: state.itemsById,
+      renderItem: options.renderItem,
+      renderRowLabel: options.renderRowLabel,
+      formatTick: options.formatTick,
+      getItemClassName: options.getItemClassName,
+      getRowClassName: options.getRowClassName,
+    });
     scene = nextScene;
 
     const source = pendingRangeSource;
@@ -292,13 +291,13 @@ export function createTimeline<T>(container: HTMLElement, options: TimelineOptio
 
   const commitRows = (prepared: PreparedRows) => {
     state.rows = prepared.rows;
-    state.rowIds = prepared.rowIds;
+    state.rowsById = prepared.rowsById;
     scheduleRender();
   };
 
   const commitData = (prepared: PreparedData<T>) => {
     state.rows = prepared.rows;
-    state.rowIds = prepared.rowIds;
+    state.rowsById = prepared.rowsById;
     state.items = prepared.items;
     state.itemsById = prepared.itemsById;
     reconcileSelection();
@@ -412,7 +411,16 @@ export function createTimeline<T>(container: HTMLElement, options: TimelineOptio
 
   let observer: ResizeObserver | undefined;
   try {
-    if (initialWidth > 1) renderScene(root, initialScene, { selectedItemId: null });
+    if (initialWidth > 1) renderScene(root, initialScene, {
+      selectedItemId: null,
+      rowsById: state.rowsById,
+      itemsById: state.itemsById,
+      renderItem: options.renderItem,
+      renderRowLabel: options.renderRowLabel,
+      formatTick: options.formatTick,
+      getItemClassName: options.getItemClassName,
+      getRowClassName: options.getRowClassName,
+    });
     container.append(root);
     observer = new ResizeObserver(scheduleRender);
     observer.observe(container);
@@ -436,13 +444,13 @@ export function createTimeline<T>(container: HTMLElement, options: TimelineOptio
   return {
     setItems(items: readonly TimelineItem<T>[]) {
       if (destroyed) return;
-      commitItems(prepareItems(items, state.rowIds));
+      commitItems(prepareItems(items, state.rowsById));
     },
     setRows(rows: readonly TimelineRow[]) {
       if (destroyed) return;
       const prepared = prepareRows(rows);
       for (const item of state.items) {
-        if (!prepared.rowIds.has(item.rowId)) {
+        if (!prepared.rowsById.has(item.rowId)) {
           throw new Error(`Timeline item "${item.id}" references unknown row "${item.rowId}".`);
         }
       }

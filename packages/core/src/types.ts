@@ -75,6 +75,8 @@ export interface SceneItem {
 
 export interface SceneTick {
   time: Timestamp;
+  unit: TickUnit;
+  step: number;
   label: string;
   x: number;
 }

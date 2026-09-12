@@ -2,6 +2,11 @@ import { createTimeline, type TimelineItem, type TimelineRow } from '@chronaxis/
 import '@chronaxis/browser/styles.css';
 import './page.css';
 
+interface DemoItemData {
+  owner: string;
+  status: 'planned' | 'active' | 'done';
+}
+
 const rows: readonly TimelineRow[] = [
   { id: 'research', label: 'Research' },
   { id: 'design', label: 'Design', height: 64 },
@@ -10,30 +15,30 @@ const rows: readonly TimelineRow[] = [
   { id: 'launch', label: 'Launch', height: 60 },
 ];
 
-const items: readonly TimelineItem[] = [
-  { id: 'interviews', rowId: 'research', start: '2025-12-27', end: '2026-01-14', label: 'Customer interviews' },
-  { id: 'landscape', rowId: 'research', start: '2026-01-10', end: '2026-01-28', label: 'Market landscape' },
-  { id: 'flows', rowId: 'design', start: '2026-01-16', end: '2026-02-12', label: 'Core flows' },
-  { id: 'system', rowId: 'design', start: '2026-02-02', end: '2026-02-26', label: 'Design system' },
-  { id: 'shell', rowId: 'frontend', start: '2026-02-09', end: '2026-03-03', label: 'Application shell' },
-  { id: 'timeline', rowId: 'frontend', start: '2026-02-23', end: '2026-04-06', label: 'Timeline UI' },
-  { id: 'schema', rowId: 'backend', start: '2026-01-27', end: '2026-02-17', label: 'Data model' },
-  { id: 'api', rowId: 'backend', start: '2026-02-12', end: '2026-03-18', label: 'Delivery API' },
-  { id: 'beta', rowId: 'launch', start: '2026-03-23', end: '2026-03-23', label: 'Beta' },
-  { id: 'rollout', rowId: 'launch', start: '2026-03-26', end: '2026-04-08', label: 'Rollout' },
+const items: readonly TimelineItem<DemoItemData>[] = [
+  { id: 'interviews', rowId: 'research', start: '2025-12-27', end: '2026-01-14', label: 'Customer interviews', data: { owner: 'Mina', status: 'done' } },
+  { id: 'landscape', rowId: 'research', start: '2026-01-10', end: '2026-01-28', label: 'Market landscape', data: { owner: 'Omar', status: 'active' } },
+  { id: 'flows', rowId: 'design', start: '2026-01-16', end: '2026-02-12', label: 'Core flows', data: { owner: 'Alice', status: 'active' } },
+  { id: 'system', rowId: 'design', start: '2026-02-02', end: '2026-02-26', label: 'Design system', data: { owner: 'Alice', status: 'planned' } },
+  { id: 'shell', rowId: 'frontend', start: '2026-02-09', end: '2026-03-03', label: 'Application shell', data: { owner: 'Noah', status: 'planned' } },
+  { id: 'timeline', rowId: 'frontend', start: '2026-02-23', end: '2026-04-06', label: 'Timeline UI', data: { owner: 'Noah', status: 'planned' } },
+  { id: 'schema', rowId: 'backend', start: '2026-01-27', end: '2026-02-17', label: 'Data model', data: { owner: 'Inez', status: 'active' } },
+  { id: 'api', rowId: 'backend', start: '2026-02-12', end: '2026-03-18', label: 'Delivery API', data: { owner: 'Inez', status: 'planned' } },
+  { id: 'beta', rowId: 'launch', start: '2026-03-23', end: '2026-03-23', label: 'Beta', data: { owner: 'Team', status: 'planned' } },
+  { id: 'rollout', rowId: 'launch', start: '2026-03-26', end: '2026-04-08', label: 'Rollout', data: { owner: 'Team', status: 'planned' } },
 ];
 
-const updatedItems: readonly TimelineItem[] = [
-  { id: 'landscape', rowId: 'research', start: '2026-01-08', end: '2026-01-24', label: 'Landscape complete' },
-  { id: 'flows', rowId: 'design', start: '2026-01-20', end: '2026-02-16', label: 'Validated flows' },
-  { id: 'system', rowId: 'design', start: '2026-02-04', end: '2026-03-02', label: 'Design system v1' },
-  { id: 'shell', rowId: 'frontend', start: '2026-02-12', end: '2026-03-08', label: 'Application shell' },
-  { id: 'timeline', rowId: 'frontend', start: '2026-02-26', end: '2026-04-10', label: 'Interactive timeline' },
-  { id: 'schema', rowId: 'backend', start: '2026-01-27', end: '2026-02-20', label: 'Data model' },
-  { id: 'api', rowId: 'backend', start: '2026-02-16', end: '2026-03-22', label: 'Delivery API' },
-  { id: 'qa', rowId: 'launch', start: '2026-03-10', end: '2026-03-27', label: 'Release QA' },
-  { id: 'beta', rowId: 'launch', start: '2026-03-30', end: '2026-03-30', label: 'Beta' },
-  { id: 'rollout', rowId: 'launch', start: '2026-04-01', end: '2026-04-14', label: 'Rollout' },
+const updatedItems: readonly TimelineItem<DemoItemData>[] = [
+  { id: 'landscape', rowId: 'research', start: '2026-01-08', end: '2026-01-24', label: 'Landscape complete', data: { owner: 'Omar', status: 'done' } },
+  { id: 'flows', rowId: 'design', start: '2026-01-20', end: '2026-02-16', label: 'Validated flows', data: { owner: 'Alice', status: 'done' } },
+  { id: 'system', rowId: 'design', start: '2026-02-04', end: '2026-03-02', label: 'Design system v1', data: { owner: 'Alice', status: 'active' } },
+  { id: 'shell', rowId: 'frontend', start: '2026-02-12', end: '2026-03-08', label: 'Application shell', data: { owner: 'Noah', status: 'active' } },
+  { id: 'timeline', rowId: 'frontend', start: '2026-02-26', end: '2026-04-10', label: 'Interactive timeline', data: { owner: 'Noah', status: 'planned' } },
+  { id: 'schema', rowId: 'backend', start: '2026-01-27', end: '2026-02-20', label: 'Data model', data: { owner: 'Inez', status: 'done' } },
+  { id: 'api', rowId: 'backend', start: '2026-02-16', end: '2026-03-22', label: 'Delivery API', data: { owner: 'Inez', status: 'active' } },
+  { id: 'qa', rowId: 'launch', start: '2026-03-10', end: '2026-03-27', label: 'Release QA', data: { owner: 'Sofia', status: 'active' } },
+  { id: 'beta', rowId: 'launch', start: '2026-03-30', end: '2026-03-30', label: 'Beta', data: { owner: 'Team', status: 'planned' } },
+  { id: 'rollout', rowId: 'launch', start: '2026-04-01', end: '2026-04-14', label: 'Rollout', data: { owner: 'Team', status: 'planned' } },
 ];
 
 let currentRows = rows;
@@ -42,10 +47,38 @@ let currentItems = items;
 const container = document.querySelector<HTMLElement>('#timeline');
 if (!container) throw new Error('Timeline container not found.');
 
-const timeline = createTimeline(container, {
+const timeline = createTimeline<DemoItemData>(container, {
   range: { start: '2026-01-01T00:00:00Z', end: '2026-04-01T00:00:00Z' },
   rows,
   items,
+  renderItem(item) {
+    const content = container.ownerDocument.createElement('span');
+    content.className = 'demo-item-content';
+    const label = container.ownerDocument.createElement('strong');
+    label.textContent = item.label ?? item.id;
+    const owner = container.ownerDocument.createElement('small');
+    owner.textContent = item.data?.owner ?? 'Unassigned';
+    content.append(label, owner);
+    return content;
+  },
+  renderRowLabel(row) {
+    const label = container.ownerDocument.createElement('span');
+    label.className = 'demo-row-label';
+    label.textContent = `◆ ${row.label}`;
+    return label;
+  },
+  formatTick({ time, unit, defaultLabel }) {
+    if (unit !== 'day' && unit !== 'week') return defaultLabel;
+    return new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric', month: 'short', timeZone: 'UTC',
+    }).format(time);
+  },
+  getItemClassName(item) {
+    return item.data ? `demo-item--${item.data.status}` : undefined;
+  },
+  getRowClassName(row) {
+    return `demo-row--${row.id}`;
+  },
 });
 
 const eventLog = document.querySelector<HTMLOListElement>('#event-log');

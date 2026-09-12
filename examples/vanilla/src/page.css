@@ -10,7 +10,15 @@ h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spa
 .demo-toolbar button:focus-visible { outline: 3px solid rgb(83 103 232 / 25%); outline-offset: 2px; }
 .instructions { margin: 13px 0 15px; color: #6c7788; font-size: 13px; }
 .instructions span { margin: 0 5px; }
-#timeline { width: 100%; min-width: 0; box-shadow: 0 18px 50px rgb(56 68 94 / 12%); }
+#timeline { --chronaxis-font-family: Inter, ui-sans-serif, system-ui, sans-serif; --chronaxis-ruler-background: #eef1ff; --chronaxis-grid-color: #d9dff2; --chronaxis-item-border-radius: 7px; --chronaxis-focus-ring: 3px solid #f59e0b; width: 100%; min-width: 0; box-shadow: 0 18px 50px rgb(56 68 94 / 12%); }
+#timeline .demo-item-content { display: flex; align-items: baseline; min-width: 0; gap: 7px; overflow: hidden; }
+#timeline .demo-item-content strong { overflow: hidden; text-overflow: ellipsis; }
+#timeline .demo-item-content small { flex: none; opacity: .74; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+#timeline .chronaxis-item.demo-item--done { --chronaxis-item-background: #25876f; }
+#timeline .chronaxis-item.demo-item--active { --chronaxis-item-background: #5367e8; }
+#timeline .chronaxis-item.demo-item--planned { --chronaxis-item-background: #68758a; }
+#timeline .demo-row-label { color: #3546ac; }
+#timeline .demo-row--launch .demo-row-label { color: #9a5b13; }
 .event-panel { margin-top: 18px; overflow: hidden; border: 1px solid #d5dce7; border-radius: 10px; background: #fff; box-shadow: 0 8px 30px rgb(56 68 94 / 8%); }
 .event-panel__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #e3e8ef; }
 .event-panel h2 { margin: 0; color: #273249; font-size: 14px; }
