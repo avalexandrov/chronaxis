@@ -12,7 +12,8 @@
     "noUncheckedIndexedAccess": true,
     "paths": {
       "@chronaxis/core": ["./packages/core/src/index.ts"],
-      "@chronaxis/browser": ["./packages/browser/src/index.ts"]
+      "@chronaxis/browser": ["./packages/browser/src/index.ts"],
+      "@chronaxis/react": ["./packages/react/src/index.ts"]
     }
   }
 }

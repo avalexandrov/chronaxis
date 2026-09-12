@@ -6,8 +6,10 @@ This repository contains the interactive timeline MVP:
 
 - `@chronaxis/core` — DOM-independent normalization, scales, range navigation, ticks, and layout
 - `@chronaxis/browser` — mutable viewport state, browser interactions, lifecycle, and DOM/SVG rendering
+- `@chronaxis/react` — a thin declarative React adapter over the browser instance
 - `@chronaxis/vanilla-example` — a Vite-powered browser demo
 - `@chronaxis/performance-example` — a deterministic browser benchmark harness
+- `@chronaxis/react-example` — a React Strict Mode adapter demo
 
 ## Development
 
@@ -16,12 +18,68 @@ npm install
 npm test
 npm run build
 npm run dev
+npm run dev:react
 npm run perf
 ```
 
 Performance methodology and Phase 6 before/after results are recorded in
 [`docs/performance-phase-6.md`](docs/performance-phase-6.md). Benchmark timings
 are engineering evidence, not automated test thresholds.
+
+## React adapter
+
+```tsx
+import { useRef } from 'react';
+import {
+  Timeline,
+  type TimelineInstance,
+  type TimelineItem,
+} from '@chronaxis/react';
+import '@chronaxis/browser/styles.css';
+
+interface TaskData {
+  owner: string;
+}
+
+const ref = useRef<TimelineInstance<TaskData>>(null);
+const items: TimelineItem<TaskData>[] = [/* ... */];
+
+<Timeline<TaskData>
+  ref={ref}
+  className="project-timeline"
+  style={{ height: 600 }}
+  rows={rows}
+  items={items}
+  initialRange={{ start: '2026-01-01', end: '2026-04-01' }}
+  onItemClick={(event) => console.log(event.item.data?.owner)}
+/>
+
+ref.current?.zoomIn();
+ref.current?.fit();
+```
+
+`rows`, `items`, event callbacks, and low-level DOM customization callbacks are
+reactive. Data changes use the browser engine's atomic `setData()` operation;
+the Chronaxis instance is not recreated. `initialRange`, `viewport`,
+`interactions`, and geometry configuration are creation-time props. Changing
+them after mount does not reset or reconfigure the instance.
+
+Viewport and selection state remain owned by Chronaxis. Pan and zoom do not
+mirror range into React state or rerender the React tree; observe events through
+callback props and use the existing `TimelineInstance` through the ref for
+imperative control.
+
+The adapter renders a `div` and accepts ordinary safe div attributes. Consumers
+must give that container a meaningful width and height. Import the base CSS once
+with `import '@chronaxis/browser/styles.css'`. The React runtime entry itself has
+no CSS side effect, so importing it remains safe in non-browser module contexts.
+
+`renderItem` and `renderRowLabel` remain browser DOM callbacks returning
+`Node | string | null`. They are not React render props and do not accept
+`ReactNode`; portals and React-owned item content remain out of scope.
+
+See [`examples/react`](examples/react) for typed data, callbacks, ref controls,
+dynamic data, atomic row/item replacement, and unmount/remount behavior.
 
 ## Browser API
 
