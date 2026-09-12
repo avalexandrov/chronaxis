@@ -9,8 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chronaxis/browser": "0.0.0",
-    "@chronaxis/react": "0.0.0",
+    "@chronaxis/browser": "0.1.0",
+    "@chronaxis/react": "0.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

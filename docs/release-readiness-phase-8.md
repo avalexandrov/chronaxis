@@ -2,7 +2,7 @@
 
 ## Recommendation
 
-Chronaxis is technically ready for an initial `0.x` release after one human blocker is resolved: choose a license and add the corresponding `LICENSE` file and package metadata. No packages were published and no repository changes were pushed during this phase.
+Chronaxis was technically ready for an initial `0.x` release after one human blocker: choosing a license. That decision was subsequently resolved as MIT during the 0.1.0 release-candidate preparation. No packages were published during this phase.
 
 Use one coordinated `0.1.0` version for `@chronaxis/core`, `@chronaxis/browser`, and `@chronaxis/react`. Update the exact internal workspace dependency versions together, publish in dependency order (core, browser, React), and verify the three final tarballs again before publishing.
 
@@ -74,7 +74,7 @@ No lint configuration was added. Existing code style is consistent, strict TypeS
 
 Package descriptions, keywords, repository directory metadata, homepage, issue tracker, file allowlists, exports, types, side effects, and Node engine policy are present. Repository URLs were derived from the configured Git remote rather than invented.
 
-The sole release blocker is licensing: there is no `LICENSE` file and no `license` field. A maintainer must choose the license. Before publishing, also replace `0.0.0` and exact internal `0.0.0` dependencies with coordinated `0.1.0` values and perform the normal npm account/provenance checks. Those are release operations, not unresolved architecture defects.
+Licensing was the sole blocker identified in this audit and was subsequently resolved as MIT. The 0.1.0 release-candidate preparation also coordinates package versions and exact internal dependency versions. Normal npm account, access, and provenance checks remain release-time operations rather than architecture concerns.
 
 ## After the initial release
 

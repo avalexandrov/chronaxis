@@ -4,6 +4,8 @@ Framework-agnostic timelines for the web.
 
 Chronaxis turns rows and time-based items into an accessible, interactive timeline. Its layout engine is DOM-independent, its browser renderer is imperative, and its React package is a thin adapter over the same browser instance.
 
+> Chronaxis is currently `0.x`. The main data, layout, browser-instance, event, and React component APIs are intended for public use, while DOM customization callbacks, exact renderer structure, and React creation-time configuration may evolve with feedback.
+
 ## Features
 
 - Millisecond, `Date`, and ISO-string time inputs
@@ -207,3 +209,5 @@ npm run test:browser
 ```
 
 Use `npm run dev` for the vanilla example, `npm run dev:react` for React, and `npm run perf` for the developer benchmark. The [Phase 8 API inventory](docs/api-audit-phase-8.md) records the reviewed public surface.
+
+Chronaxis is available under the [MIT License](LICENSE). See the [changelog](CHANGELOG.md) for release history.

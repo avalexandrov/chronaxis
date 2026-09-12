@@ -1,6 +1,6 @@
 {
   "name": "@chronaxis/browser",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Accessible interactive DOM/SVG timelines powered by Chronaxis core.",
   "keywords": ["timeline", "typescript", "visualization", "scheduler", "browser"],
   "repository": {
@@ -10,6 +10,7 @@
   },
   "homepage": "https://github.com/avalexandrov/chronaxis#readme",
   "bugs": "https://github.com/avalexandrov/chronaxis/issues",
+  "license": "MIT",
   "type": "module",
   "sideEffects": ["**/*.css"],
   "main": "./dist/index.js",
@@ -33,6 +34,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chronaxis/core": "0.0.0"
+    "@chronaxis/core": "0.1.0"
   }
 }

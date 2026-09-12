@@ -65,4 +65,4 @@ React does not export hooks, React-specific imperative handles, controlled state
 
 1. Removed the accidental public `TimelineComponent` alias while preserving the generic `Timeline` declaration.
 2. Reworked the performance example to use only public browser and core imports; renderer internals remain private.
-3. Add package metadata that can be established from the repository, but treat the missing license decision as a human release blocker.
+3. Package metadata was added from established repository information. The license was subsequently resolved as MIT during the 0.1.0 release-candidate preparation.
