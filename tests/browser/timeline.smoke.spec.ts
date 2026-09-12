@@ -37,6 +37,32 @@ test.describe('vanilla browser timeline', () => {
     await expect(timeline.getByRole('button', { name: 'Interactive timeline' })).toBeVisible();
   });
 
+  test('does not select labels or item text during pointer interaction', async ({ page }) => {
+    const timeline = page.getByLabel('Product delivery timeline');
+    const root = timeline.locator('.chronaxis');
+    await expect(root).toHaveCSS('user-select', 'none');
+
+    await root.locator('.chronaxis-row-label').first().click({ clickCount: 3 });
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
+
+    await root.locator('.chronaxis-tick-label').first().click({ clickCount: 3 });
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
+
+    await timeline.getByRole('button', { name: 'Customer interviews' }).click({ clickCount: 2 });
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
+
+    const plot = await root.locator('.chronaxis-items').boundingBox();
+    expect(plot).not.toBeNull();
+    const emptyPoint = { x: plot!.x + 5, y: plot!.y + plot!.height - 5 };
+    const itemAtPoint = await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-chronaxis-item-id]') ?? null,
+      emptyPoint,
+    );
+    expect(itemAtPoint).toBeNull();
+    await page.mouse.click(emptyPoint.x, emptyPoint.y, { clickCount: 3 });
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
+  });
+
   test('has no serious automated accessibility findings', async ({ page }) => {
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
