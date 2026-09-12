@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Deterministic Chronaxis renderer benchmark" />
+    <title>Chronaxis Performance Harness</title>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Development benchmark</p>
+      <h1>Chronaxis Performance Harness</h1>
+      <p>Production-oriented, deterministic measurements. Timings are comparative—not CI assertions.</p>
+      <form id="controls">
+        <label>Dataset
+          <select name="size">
+            <option value="small">Small · 10 rows / 100 items</option>
+            <option value="medium">Medium · 25 rows / 1,000 items</option>
+            <option value="large" selected>Large · 50 rows / 5,000 items</option>
+            <option value="very-large">Very large · 100 rows / 10,000 items</option>
+            <option value="rows-500">Row-heavy · 500 rows / 1,000 items</option>
+            <option value="rows-1000">Row-heavy · 1,000 rows / 2,000 items</option>
+          </select>
+        </label>
+        <label>Rendering
+          <select name="mode">
+            <option value="simple">Simple labels</option>
+            <option value="rich" selected>Rich DOM</option>
+          </select>
+        </label>
+        <button type="submit">Run benchmark</button>
+      </form>
+      <p id="status" role="status">Ready.</p>
+      <div id="timeline-host"></div>
+      <pre id="results">Run a scenario to collect measurements.</pre>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

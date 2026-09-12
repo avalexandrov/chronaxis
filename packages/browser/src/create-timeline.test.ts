@@ -804,6 +804,121 @@ describe('dynamic data typing', () => {
 });
 
 describe('rendering customization', () => {
+  it('reuses keyed row and item roots across viewport-only renders', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    const renderItem = vi.fn((item: TimelineItemSnapshot<{ owner: string }>) => item.label ?? '');
+    const renderRowLabel = vi.fn((row: { label: string }) => row.label);
+    options.renderItem = renderItem;
+    options.renderRowLabel = renderRowLabel;
+    const timeline = createTimeline(container, options);
+    const originalItem = itemOf(container);
+    const originalRow = container.querySelector<HTMLElement>('.chronaxis-row');
+
+    timeline.zoomIn();
+    flushFrame();
+
+    expect(itemOf(container)).toBe(originalItem);
+    expect(container.querySelector('.chronaxis-row')).toBe(originalRow);
+    expect(renderItem).toHaveBeenCalledTimes(1);
+    expect(renderRowLabel).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes only selection-sensitive item content when selection changes', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.items = [
+      ...options.items,
+      { id: 'other', rowId: 'row', start: '2026-01-12', label: 'Other', data: { owner: 'Bea' } },
+    ];
+    const calls: string[] = [];
+    options.renderItem = (item, context) => {
+      calls.push(`${item.id}:${context.selected}`);
+      return item.label ?? '';
+    };
+    const timeline = createTimeline(container, options);
+    calls.length = 0;
+
+    timeline.selectItem('item');
+    flushFrame();
+    expect(calls).toEqual(['item:true']);
+
+    calls.length = 0;
+    timeline.selectItem('other');
+    flushFrame();
+    expect(calls.sort()).toEqual(['item:false', 'other:true']);
+  });
+
+  it('updates reused roots and removes stale consumer classes after data replacement', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.getItemClassName = (item) => `owner-${item.data?.owner.toLowerCase()}`;
+    options.getRowClassName = (row) => `row-${row.label.toLowerCase().replace(/\s+/g, '-')}`;
+    const timeline = createTimeline(container, options);
+    const originalItem = itemOf(container);
+    const originalRow = container.querySelector<HTMLElement>('.chronaxis-row')!;
+
+    timeline.setData({
+      rows: [{ id: 'row', label: 'Updated row' }],
+      items: [{ id: 'item', rowId: 'row', start: '2026-01-08', label: 'Updated item', data: { owner: 'Bea' } }],
+    });
+    flushFrame();
+
+    expect(itemOf(container)).toBe(originalItem);
+    expect(itemOf(container).textContent).toBe('Updated item');
+    expect(itemOf(container).getAttribute('aria-label')).toBe('Updated item');
+    expect(itemOf(container).classList.contains('owner-alex')).toBe(false);
+    expect(itemOf(container).classList.contains('owner-bea')).toBe(true);
+    expect(container.querySelector('.chronaxis-row')).toBe(originalRow);
+    expect(originalRow.classList.contains('row-original-row')).toBe(false);
+    expect(originalRow.classList.contains('row-updated-row')).toBe(true);
+  });
+
+  it('restores item focus after an atomic large-data rebuild', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.items = Array.from({ length: 120 }, (_, index) => ({
+      id: `item-${index}`,
+      rowId: 'row',
+      start: '2026-01-08',
+      label: `Original ${index}`,
+      data: { owner: 'Alex' },
+    }));
+    const timeline = createTimeline(container, options);
+    itemOf(container, 'item-0').focus();
+
+    timeline.setItems(options.items.map((item, index) => ({ ...item, label: `Updated ${index}` })));
+    flushFrame();
+
+    expect(itemOf(container, 'item-0').textContent).toBe('Updated 0');
+    expect(document.activeElement).toBe(itemOf(container, 'item-0'));
+  });
+
+  it('keeps the live DOM intact when a callback fails during a large-data rebuild', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.items = Array.from({ length: 120 }, (_, index) => ({
+      id: `item-${index}`,
+      rowId: 'row',
+      start: '2026-01-08',
+      label: `Original ${index}`,
+      data: { owner: 'Alex' },
+    }));
+    let shouldThrow = false;
+    options.renderItem = (item) => {
+      if (shouldThrow && item.id === 'item-60') throw new Error('Large renderer failed');
+      return item.label ?? '';
+    };
+    const timeline = createTimeline(container, options);
+    const original = itemOf(container, 'item-0');
+    shouldThrow = true;
+
+    timeline.setItems(options.items.map((item, index) => ({ ...item, label: `Updated ${index}` })));
+    expect(flushFrame).toThrow('Large renderer failed');
+    expect(itemOf(container, 'item-0')).toBe(original);
+    expect(original.textContent).toBe('Original 0');
+  });
+
   it('preserves default item, row, and tick labels without callbacks', () => {
     const container = containerAt(600);
     createTimeline(container, timelineOptions());

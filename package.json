@@ -8,10 +8,11 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/vanilla-example",
+    "build": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/vanilla-example && npm run build -w @chronaxis/performance-example",
     "dev": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run dev -w @chronaxis/vanilla-example",
     "test": "npm run test -w @chronaxis/core && npm run test -w @chronaxis/browser",
-    "typecheck": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run typecheck -w @chronaxis/vanilla-example"
+    "typecheck": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run typecheck -w @chronaxis/vanilla-example && npm run typecheck -w @chronaxis/performance-example",
+    "perf": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/performance-example && npm run preview -w @chronaxis/performance-example"
   },
   "devDependencies": {
     "happy-dom": "^20.14.3",

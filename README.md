@@ -7,6 +7,7 @@ This repository contains the interactive timeline MVP:
 - `@chronaxis/core` — DOM-independent normalization, scales, range navigation, ticks, and layout
 - `@chronaxis/browser` — mutable viewport state, browser interactions, lifecycle, and DOM/SVG rendering
 - `@chronaxis/vanilla-example` — a Vite-powered browser demo
+- `@chronaxis/performance-example` — a deterministic browser benchmark harness
 
 ## Development
 
@@ -15,7 +16,12 @@ npm install
 npm test
 npm run build
 npm run dev
+npm run perf
 ```
+
+Performance methodology and Phase 6 before/after results are recorded in
+[`docs/performance-phase-6.md`](docs/performance-phase-6.md). Benchmark timings
+are engineering evidence, not automated test thresholds.
 
 ## Browser API
 
@@ -88,9 +94,10 @@ contract for the owned row-label wrapper. These are plain DOM hooks, not
 framework component adapters, and nested interactive controls are not supported.
 
 Rendering and class callbacks receive frozen public snapshots with the current
-runtime data. They may run during any Chronaxis render, including navigation,
-resize, selection, and data updates, so they should be presentation-only and
-must not rely on invocation counts or perform side effects.
+runtime data. They may run during Chronaxis renders, including navigation,
+selection, and data updates, so they should be presentation-only and must not
+rely on invocation counts or perform side effects. Chronaxis may reuse previous
+output when the corresponding data and selection context are unchanged.
 
 The default ruler continues to use core's UTC calendar boundaries and English
 UTC labels. `formatTick()` changes presentation only and receives `time`,
@@ -165,8 +172,9 @@ Items are focusable buttons with label-based accessible names, visible focus,
 and selected state exposed through `aria-pressed` and `data-selected`. Pointer
 movement below the four-pixel pan threshold activates an item; movement at or
 beyond it pans without activation. Enter and Space activate focused items. When
-a render rebuilds the scene, focus is restored only if a Chronaxis item owned it
-and that item remains visible.
+possible, rendering retains visible item elements by stable ID. If a scene must
+be rebuilt, focus is restored only if a Chronaxis item owned it and that item
+remains visible.
 
 Pointer dragging pans over the temporal plot. Wheel zoom defaults to Ctrl/Cmd +
 wheel (and browser trackpad pinch events represented that way), so ordinary page
