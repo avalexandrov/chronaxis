@@ -12,12 +12,14 @@ function assertScale(scale: TimeScale): void {
   }
 }
 
+/** Projects a timestamp into plot-local pixels. */
 export function timeToX(time: number, scale: TimeScale): number {
   assertScale(scale);
   if (!Number.isFinite(time)) throw new TypeError('Time must be a finite number.');
   return ((time - scale.range.start) / (scale.range.end - scale.range.start)) * scale.width;
 }
 
+/** Converts plot-local pixels back to a timestamp. */
 export function xToTime(x: number, scale: TimeScale): number {
   assertScale(scale);
   if (!Number.isFinite(x)) throw new TypeError('X must be a finite number.');

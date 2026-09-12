@@ -1,12 +1,15 @@
 export type Timestamp = number;
+/** A millisecond timestamp, Date, or date/time string accepted at API boundaries. */
 export type TimeInput = number | Date | string;
 
+/** A vertical lane in the timeline. */
 export interface TimelineRow {
   id: string;
   label: string;
   height?: number;
 }
 
+/** Consumer item input; omitted `end` represents a point item. */
 export interface TimelineItem<T = unknown> {
   id: string;
   rowId: string;
@@ -16,16 +19,19 @@ export interface TimelineItem<T = unknown> {
   data?: T;
 }
 
+/** Consumer-friendly viewport input. */
 export interface TimeRangeInput {
   start: TimeInput;
   end: TimeInput;
 }
 
+/** Normalized millisecond viewport. */
 export interface TimeRange {
   start: Timestamp;
   end: Timestamp;
 }
 
+/** Item form after all time inputs have been normalized to milliseconds. */
 export interface NormalizedTimelineItem<T = unknown> {
   id: string;
   rowId: string;
@@ -35,6 +41,7 @@ export interface NormalizedTimelineItem<T = unknown> {
   data?: T;
 }
 
+/** Numeric range and pixel width used for time projection. */
 export interface TimeScale {
   range: TimeRange;
   width: number;
@@ -103,6 +110,7 @@ export interface TimelineScene {
   gridLines: SceneGridLine[];
 }
 
+/** Geometry options for the pure layout engine. */
 export interface LayoutOptions {
   width: number;
   defaultRowHeight?: number;

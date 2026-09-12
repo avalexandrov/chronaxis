@@ -1,6 +1,5 @@
 import { createTimeline, type TimelineItem, type TimelineRow } from '@chronaxis/browser';
-import { fitRange, layoutTimeline, normalizeItems, type NormalizedTimelineItem, type TimeRange } from '@chronaxis/core';
-import { renderScene, type RenderOptions } from '../../../packages/browser/src/render.js';
+import { fitRange, layoutTimeline, normalizeItems, type TimeRange } from '@chronaxis/core';
 import '@chronaxis/browser/styles.css';
 import './page.css';
 
@@ -83,64 +82,41 @@ function timed<T>(callback: () => T): { duration: number; value: T } {
   return { duration: performance.now() - start, value };
 }
 
-function prepare<T>(data: { rows: TimelineRow[]; items: TimelineItem<T>[] }) {
-  const items = normalizeItems(data.items);
-  return {
-    rows: data.rows,
-    items,
-    rowsById: new Map(data.rows.map((row) => [row.id, row])),
-    itemsById: new Map(items.map((item) => [item.id, item])),
-  };
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-function forceStyle(root: HTMLElement): void {
+async function measureOperation(root: HTMLElement, mutate: () => void): Promise<number> {
+  const start = performance.now();
+  mutate();
+  await nextFrame();
+  await nextFrame();
   void root.offsetHeight;
+  return performance.now() - start;
 }
 
-function measureRender<T>(
-  root: HTMLElement,
-  range: TimeRange,
-  width: number,
-  prepared: ReturnType<typeof prepare<T>>,
-  options: RenderOptions<T>,
-): { layout: number; render: number; visible: number; callbacks: number; ticks: number; gridLines: number } {
-  const layout = timed(() => layoutTimeline({
+function layoutDuration(data: BenchmarkData, range: TimeRange, width: number): number {
+  return timed(() => layoutTimeline({
     range,
-    rows: prepared.rows,
-    items: prepared.items,
+    rows: data.rows,
+    items: normalizeItems(data.items),
     options: { width, rowLabelWidth: 140, rulerHeight: 42, defaultRowHeight: 48, itemHeight: 24 },
-  }));
-  const callbacksBefore = callbackCount;
-  const render = timed(() => {
-    renderScene(root, layout.value, options);
-    forceStyle(root);
-  });
-  return {
-    layout: layout.duration,
-    render: render.duration,
-    visible: layout.value.items.length,
-    callbacks: callbackCount - callbacksBefore,
-    ticks: layout.value.ticks.length,
-    gridLines: layout.value.gridLines.length,
-  };
+  })).duration;
 }
-
-let callbackCount = 0;
 
 async function runBenchmark(size: string, mode: string): Promise<Record<string, unknown>> {
   const scenario = scenarios[size] ?? scenarios.large!;
   const data = generateData(scenario);
   const replacement = generateData(scenario, 1);
-  const prepared = prepare(data);
-  const replacementPrepared = prepare(replacement);
   const host = document.querySelector<HTMLElement>('#timeline-host')!;
   host.replaceChildren();
-  callbackCount = 0;
+  let callbackCount = 0;
   const rich = mode === 'rich';
-  const renderOptions: RenderOptions<ItemData> = {
-    selectedItemId: null,
-    rowsById: prepared.rowsById,
-    itemsById: prepared.itemsById,
+
+  const construction = timed(() => createTimeline(host, {
+    range: VIEWPORT,
+    rows: data.rows,
+    items: data.items,
     renderItem: rich ? (item) => {
       callbackCount += 1;
       const content = document.createElement('span');
@@ -151,118 +127,76 @@ async function runBenchmark(size: string, mode: string): Promise<Record<string, 
       content.append(title, owner);
       return content;
     } : undefined,
-  };
-  const width = host.clientWidth;
-
-  const warmRoot = document.createElement('div');
-  warmRoot.className = 'chronaxis benchmark-root';
-  host.append(warmRoot);
-  measureRender(warmRoot, VIEWPORT, width, prepared, renderOptions);
-  warmRoot.remove();
-
-  const root = document.createElement('div');
-  root.className = 'chronaxis benchmark-root';
-  host.append(root);
-  const initial = measureRender(root, VIEWPORT, width, prepared, renderOptions);
-
-  const publicHost = document.createElement('div');
-  publicHost.className = 'public-host';
-  host.append(publicHost);
-  const construction = timed(() => createTimeline(publicHost, {
-    range: VIEWPORT,
-    rows: data.rows,
-    items: data.items,
-    renderItem: renderOptions.renderItem,
   }));
-  construction.value.destroy();
-  publicHost.remove();
+  const timeline = construction.value;
+  const root = host.querySelector<HTMLElement>('.chronaxis')!;
+  await nextFrame();
+  void root.offsetHeight;
 
-  const pan = Array.from({ length: SAMPLES }, (_, index) => measureRender(
-    root,
-    { start: VIEWPORT.start + index * DAY, end: VIEWPORT.end + index * DAY },
-    width,
-    prepared,
-    { ...renderOptions, rowsById: prepared.rowsById, itemsById: prepared.itemsById },
-  ));
-  const zoom = Array.from({ length: SAMPLES }, (_, index) => {
-    const duration = (10 + (index % 12) * 10) * DAY;
-    const center = (VIEWPORT.start + VIEWPORT.end) / 2;
-    return measureRender(
-      root,
-      { start: center - duration / 2, end: center + duration / 2 },
-      width,
-      prepared,
-      { ...renderOptions, rowsById: prepared.rowsById, itemsById: prepared.itemsById },
-    );
-  });
-  const selection = Array.from({ length: SAMPLES }, (_, index) => {
-    const visibleId = `task-${(index * 7919) % scenario.items}`;
-    return measureRender(
-      root,
-      VIEWPORT,
-      width,
-      prepared,
-      { ...renderOptions, selectedItemId: visibleId, rowsById: prepared.rowsById, itemsById: prepared.itemsById },
-    );
-  });
-  const resize = Array.from({ length: SAMPLES }, (_, index) => measureRender(
-    root,
-    VIEWPORT,
-    720 + (index % 8) * 80,
-    prepared,
-    { ...renderOptions, rowsById: prepared.rowsById, itemsById: prepared.itemsById },
-  ));
-  const replacementResult = measureRender(
-    root,
-    VIEWPORT,
-    width,
-    replacementPrepared,
-    { ...renderOptions, rowsById: replacementPrepared.rowsById, itemsById: replacementPrepared.itemsById },
-  );
-  const setDataPreparation = timed(() => prepare(replacement));
-  const fit = Array.from({ length: SAMPLES }, () => timed(() => fitRange(prepared.items, {
+  const width = host.clientWidth;
+  const initialLayout = layoutDuration(data, VIEWPORT, width);
+  const initialCallbacks = callbackCount;
+
+  const pan: number[] = [];
+  const panLayout: number[] = [];
+  for (let index = 0; index < SAMPLES; index += 1) {
+    const range = { start: VIEWPORT.start + index * DAY, end: VIEWPORT.end + index * DAY };
+    panLayout.push(layoutDuration(data, range, width));
+    pan.push(await measureOperation(root, () => timeline.setRange(range)));
+  }
+
+  timeline.setRange(VIEWPORT);
+  await nextFrame();
+  const zoom: number[] = [];
+  for (let index = 0; index < SAMPLES; index += 1) {
+    zoom.push(await measureOperation(root, () => index % 2 === 0 ? timeline.zoomIn() : timeline.zoomOut()));
+  }
+
+  const selection: number[] = [];
+  for (let index = 0; index < SAMPLES; index += 1) {
+    selection.push(await measureOperation(root, () => timeline.selectItem(`task-${(index * 7919) % scenario.items}`)));
+  }
+
+  const resize: number[] = [];
+  for (let index = 0; index < SAMPLES; index += 1) {
+    resize.push(await measureOperation(root, () => {
+      host.style.width = `${720 + (index % 8) * 80}px`;
+    }));
+  }
+  host.style.width = '';
+
+  const replacementLayout = layoutDuration(replacement, VIEWPORT, width);
+  const replacementCallbacksBefore = callbackCount;
+  const replacementDuration = await measureOperation(root, () => timeline.setData(replacement));
+  const replacementCallbacks = callbackCount - replacementCallbacksBefore;
+  const fitDuration = timed(() => fitRange(normalizeItems(replacement.items), {
     minimumDuration: 5 * 60 * 1000,
-  })).duration);
-  const nodeCount = root.querySelectorAll('*').length;
+  })).duration;
 
-  return {
+  const result = {
     build: import.meta.env.MODE,
-    renderer: 'keyed-reuse',
+    measurement: 'public-api-operation-to-paint',
     scenario: size,
     mode,
     rows: scenario.rows,
     totalItems: scenario.items,
-    visibleItems: initial.visible,
-    domNodes: nodeCount,
-    tickCount: initial.ticks,
-    gridLineCount: initial.gridLines,
-    customRenderCallbacksPerRender: rich ? initial.callbacks : 0,
+    visibleItems: root.querySelectorAll('[data-chronaxis-item-id]').length,
+    domNodes: root.querySelectorAll('*').length,
     initialConstructionMs: construction.duration,
-    initialLayoutMs: initial.layout,
-    initialRenderMs: initial.render,
-    initialTotalMs: initial.layout + initial.render,
-    panLayoutMs: stats(pan.map((sample) => sample.layout)),
-    panRenderMs: stats(pan.map((sample) => sample.render)),
-    panTotalMs: stats(pan.map((sample) => sample.layout + sample.render)),
-    panCustomItemCallbacks: stats(pan.map((sample) => sample.callbacks)),
-    zoomLayoutMs: stats(zoom.map((sample) => sample.layout)),
-    zoomRenderMs: stats(zoom.map((sample) => sample.render)),
-    zoomTotalMs: stats(zoom.map((sample) => sample.layout + sample.render)),
-    zoomCustomItemCallbacks: stats(zoom.map((sample) => sample.callbacks)),
-    selectionRenderMs: stats(selection.map((sample) => sample.render)),
-    selectionTotalMs: stats(selection.map((sample) => sample.layout + sample.render)),
-    selectionCustomItemCallbacks: stats(selection.map((sample) => sample.callbacks)),
-    resizeLayoutMs: stats(resize.map((sample) => sample.layout)),
-    resizeRenderMs: stats(resize.map((sample) => sample.render)),
-    resizeTotalMs: stats(resize.map((sample) => sample.layout + sample.render)),
-    resizeCustomItemCallbacks: stats(resize.map((sample) => sample.callbacks)),
-    dataPreparationMs: setDataPreparation.duration,
-    dataReplacementLayoutMs: replacementResult.layout,
-    dataReplacementRenderMs: replacementResult.render,
-    dataReplacementTotalMs: replacementResult.layout + replacementResult.render,
-    dataReplacementCustomItemCallbacks: replacementResult.callbacks,
-    fitMs: stats(fit),
+    initialLayoutReferenceMs: initialLayout,
+    initialCustomItemCallbacks: rich ? initialCallbacks : 0,
+    panOperationMs: stats(pan),
+    panLayoutReferenceMs: stats(panLayout),
+    zoomOperationMs: stats(zoom),
+    selectionOperationMs: stats(selection),
+    resizeOperationMs: stats(resize),
+    dataReplacementOperationMs: replacementDuration,
+    dataReplacementLayoutReferenceMs: replacementLayout,
+    dataReplacementCustomItemCallbacks: replacementCallbacks,
+    fitReferenceMs: fitDuration,
   };
+  timeline.destroy();
+  return result;
 }
 
 const controls = document.querySelector<HTMLFormElement>('#controls')!;
@@ -272,7 +206,7 @@ const results = document.querySelector<HTMLElement>('#results')!;
 async function execute(size: string, mode: string): Promise<void> {
   status.textContent = `Running ${size} / ${mode}…`;
   document.body.dataset.benchmarkStatus = 'running';
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await nextFrame();
   try {
     const result = await runBenchmark(size, mode);
     results.textContent = JSON.stringify(result, null, 2);

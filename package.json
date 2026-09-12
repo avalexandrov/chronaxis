@@ -12,10 +12,13 @@
     "dev": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run dev -w @chronaxis/vanilla-example",
     "dev:react": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/react && npm run dev -w @chronaxis/react-example",
     "test": "npm run test -w @chronaxis/core && npm run test -w @chronaxis/browser && npm run test -w @chronaxis/react",
+    "test:browser": "playwright test",
     "typecheck": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/react && npm run typecheck -w @chronaxis/vanilla-example && npm run typecheck -w @chronaxis/performance-example && npm run typecheck -w @chronaxis/react-example",
     "perf": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/performance-example && npm run preview -w @chronaxis/performance-example"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "happy-dom": "^20.14.3",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",

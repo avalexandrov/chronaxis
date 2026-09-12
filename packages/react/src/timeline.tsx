@@ -39,8 +39,11 @@ interface ReactiveCallbacks<T> {
 }
 
 interface CreationProps {
+  /** Initial viewport; changes after mount are intentionally ignored. */
   initialRange: TimeRangeInput;
+  /** Creation-time viewport limits. */
   viewport?: TimelineViewportOptions;
+  /** Creation-time interaction behavior. */
   interactions?: TimelineInteractionOptions;
   defaultRowHeight?: number;
   rulerHeight?: number;
@@ -49,6 +52,7 @@ interface CreationProps {
   minimumItemWidth?: number;
 }
 
+/** Props for the React-owned timeline container. Rows, items, and callbacks are reactive. */
 export type TimelineProps<T = unknown> = Omit<ComponentPropsWithoutRef<'div'>, 'children'>
   & CreationProps
   & ReactiveCallbacks<T>
@@ -194,9 +198,13 @@ function TimelineInner<T>(
   return <div {...containerProps} ref={containerRef} />;
 }
 
-export type TimelineComponent = <T = unknown>(
+type TimelineComponent = <T = unknown>(
   props: TimelineProps<T> & RefAttributes<TimelineInstance<T>>,
 ) => ReactElement;
 
+/**
+ * Thin React adapter over `createTimeline`. Viewport interaction stays in Chronaxis;
+ * the forwarded ref exposes the existing `TimelineInstance<T>` directly.
+ */
 export const Timeline = forwardRef(TimelineInner) as TimelineComponent;
 (Timeline as TimelineComponent & { displayName?: string }).displayName = 'Timeline';

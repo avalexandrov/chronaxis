@@ -1,4 +1,4 @@
-export { Timeline, type TimelineComponent, type TimelineProps } from './timeline.js';
+export { Timeline, type TimelineProps } from './timeline.js';
 
 export type {
   ItemClickEvent,

@@ -16,7 +16,7 @@ main {
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #5367e8;
+  color: #3546ac;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .12em;
@@ -68,9 +68,9 @@ h1 { margin: 0; font-size: clamp(30px, 5vw, 48px); }
   white-space: nowrap;
 }
 
-.react-timeline .chronaxis-item small { opacity: .78; }
-.react-timeline .status-done { --chronaxis-item-background: #23846b; }
-.react-timeline .status-planned { --chronaxis-item-background: #79859a; }
+.react-timeline .chronaxis-item small { opacity: 1; }
+.react-timeline .status-done { --chronaxis-item-background: #176b57; }
+.react-timeline .status-planned { --chronaxis-item-background: #5f6b7a; }
 
 .events,
 .unmounted {

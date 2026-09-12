@@ -6,6 +6,7 @@ import type {
   TimeRangeInput,
 } from './types.js';
 
+/** Normalizes a supported time input to a finite millisecond timestamp. */
 export function normalizeTime(input: TimeInput): number {
   const value = input instanceof Date ? input.getTime() :
     typeof input === 'string' ? Date.parse(input) : input;
@@ -17,6 +18,7 @@ export function normalizeTime(input: TimeInput): number {
   return value;
 }
 
+/** Normalizes and validates an increasing time range. */
 export function normalizeRange(range: TimeRangeInput): TimeRange {
   const start = normalizeTime(range.start);
   const end = normalizeTime(range.end);
@@ -26,6 +28,7 @@ export function normalizeRange(range: TimeRangeInput): TimeRange {
   return { start, end };
 }
 
+/** Returns an owned item with numeric start/end timestamps. */
 export function normalizeItem<T>(item: TimelineItem<T>): NormalizedTimelineItem<T> {
   const start = normalizeTime(item.start);
   const end = item.end === undefined ? start : normalizeTime(item.end);
@@ -35,6 +38,7 @@ export function normalizeItem<T>(item: TimelineItem<T>): NormalizedTimelineItem<
   return { ...item, start, end };
 }
 
+/** Normalizes an ordered item collection without mutating the input. */
 export function normalizeItems<T>(items: readonly TimelineItem<T>[]): NormalizedTimelineItem<T>[] {
   return items.map(normalizeItem);
 }

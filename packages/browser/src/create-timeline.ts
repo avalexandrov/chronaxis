@@ -165,6 +165,10 @@ function createRuntimeState<T>(options: TimelineOptions<T>): RuntimeState<T> {
   };
 }
 
+/**
+ * Mounts an interactive timeline into `container` and returns its imperative API.
+ * The instance owns copied/normalized input state and must be destroyed when its host is removed.
+ */
 export function createTimeline<T>(container: HTMLElement, options: TimelineOptions<T>): TimelineInstance<T> {
   if (!(container instanceof HTMLElement)) throw new TypeError('A valid HTMLElement container is required.');
 

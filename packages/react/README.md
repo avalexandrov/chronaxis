@@ -3,6 +3,8 @@
 A thin React adapter for the framework-independent Chronaxis browser engine.
 
 ```tsx
+import { useRef } from 'react';
+import { Timeline, type TimelineInstance } from '@chronaxis/react';
 import '@chronaxis/browser/styles.css';
 
 const timelineRef = useRef<TimelineInstance<TaskData>>(null);
@@ -22,3 +24,5 @@ Reactive props are `rows`, `items`, event callbacks, and DOM customization callb
 Import base styles once from `@chronaxis/browser/styles.css`. The outer React-owned `div` still needs application-appropriate dimensions.
 
 Customization callbacks return DOM `Node`, string, or null values. React elements, portals, controlled range/selection, and server rendering of the timeline are not supported by this first adapter.
+
+The supported peer range is React 18.2 through React 19. See the [repository README](https://github.com/avalexandrov/chronaxis#readme) for the complete API and support policy.

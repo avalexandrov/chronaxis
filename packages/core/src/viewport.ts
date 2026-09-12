@@ -2,11 +2,13 @@ import type { NormalizedTimelineItem, TimeRange, Timestamp } from './types.js';
 
 export type RangeAlignment = 'start' | 'center' | 'end';
 
+/** Minimum and maximum interactive viewport durations in milliseconds. */
 export interface ZoomLimits {
   minDuration: number;
   maxDuration: number;
 }
 
+/** Padding and minimum-duration policy for fitting items. */
 export interface FitRangeOptions {
   paddingRatio?: number;
   minimumDuration: number;
@@ -68,6 +70,7 @@ export function panRange(range: TimeRange, contentDeltaRatio: number): TimeRange
   return { start: range.start + offset, end: range.end + offset };
 }
 
+/** Returns a same-duration range with `time` at the requested alignment. */
 export function alignTimeInRange(
   range: TimeRange,
   time: Timestamp,
@@ -81,6 +84,7 @@ export function alignTimeInRange(
   return { start, end: start + duration };
 }
 
+/** Returns a padded range containing all items, or null for an empty collection. */
 export function fitRange<T>(
   items: readonly NormalizedTimelineItem<T>[],
   options: FitRangeOptions,

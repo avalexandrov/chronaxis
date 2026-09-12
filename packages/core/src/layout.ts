@@ -2,6 +2,7 @@ import { generateTickTimes, formatTick, selectTickInterval } from './ruler.js';
 import { timeToX } from './scale.js';
 import type { LayoutOptions, NormalizedTimelineItem, TimelineRow, TimelineScene, TimeRange } from './types.js';
 
+/** Complete input to the pure layout engine. Items must already be normalized. */
 export interface TimelineLayoutInput<T = unknown> {
   range: TimeRange;
   rows: readonly TimelineRow[];
@@ -14,6 +15,7 @@ function positive(value: number, name: string): number {
   return value;
 }
 
+/** Produces a DOM-independent scene and culls items outside the horizontal viewport. */
 export function layoutTimeline<T>(input: TimelineLayoutInput<T>): TimelineScene {
   const range = input.range;
   if (!Number.isFinite(range.start) || !Number.isFinite(range.end)) {
