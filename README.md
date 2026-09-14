@@ -20,9 +20,9 @@ Chronaxis turns rows and time-based items into an accessible, interactive timeli
 
 | Package | Purpose |
 | --- | --- |
-| `@chronaxis/core` | Pure normalization, scale, ruler, layout, and viewport math |
-| `@chronaxis/browser` | Browser renderer, interactions, lifecycle, styles, and imperative API |
-| `@chronaxis/react` | Declarative React 18.2–19 adapter with an imperative ref |
+| [`@chronaxis/core`](https://www.npmjs.com/package/@chronaxis/core) | Pure normalization, scale, ruler, layout, and viewport math |
+| [`@chronaxis/browser`](https://www.npmjs.com/package/@chronaxis/browser) | Browser renderer, interactions, lifecycle, styles, and imperative API |
+| [`@chronaxis/react`](https://www.npmjs.com/package/@chronaxis/react) | Declarative React 18.2–19 adapter with an imperative ref |
 
 ## Installation
 
