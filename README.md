@@ -1,6 +1,6 @@
 # Chronaxis
 
-Framework-agnostic timelines for the web.
+Framework-agnostic timelines for the web, available on npm as [`@chronaxis/core`](https://www.npmjs.com/package/@chronaxis/core), [`@chronaxis/browser`](https://www.npmjs.com/package/@chronaxis/browser), and [`@chronaxis/react`](https://www.npmjs.com/package/@chronaxis/react).
 
 Chronaxis turns rows and time-based items into an accessible, interactive timeline. Its layout engine is DOM-independent, its browser renderer is imperative, and its React package is a thin adapter over the same browser instance.
 
