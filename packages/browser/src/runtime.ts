@@ -24,4 +24,12 @@ export type {
   TimelineViewportOptions,
   WheelZoomMode,
 } from './types.js';
-export type { TimeInput, TimeRange, TimeRangeInput, TimelineItem, TimelineRow } from '@chronaxis/core';
+export type {
+  OverlapMode,
+  OverlapOptions,
+  TimeInput,
+  TimeRange,
+  TimeRangeInput,
+  TimelineItem,
+  TimelineRow,
+} from '@chronaxis/core';

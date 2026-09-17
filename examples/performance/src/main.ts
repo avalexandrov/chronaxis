@@ -7,6 +7,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const BASE = Date.UTC(2026, 0, 1);
 const VIEWPORT: TimeRange = { start: BASE + 150 * DAY, end: BASE + 180 * DAY };
 const SAMPLES = 24;
+const STACK_LANE_GAP = 4;
 
 interface BenchmarkData {
   rows: TimelineRow[];
@@ -22,7 +23,12 @@ interface ItemData {
 interface Scenario {
   rows: number;
   items: number;
+  pathological?: boolean;
 }
+
+type OverlapDensity = 'low' | 'moderate' | 'heavy' | 'pathological';
+type OverlapMode = 'overlay' | 'stack';
+type LayoutSelection = OverlapMode | 'compare';
 
 interface Stats {
   average: number;
@@ -38,20 +44,40 @@ const scenarios: Record<string, Scenario> = {
   'very-large': { rows: 100, items: 10_000 },
   'rows-500': { rows: 500, items: 1_000 },
   'rows-1000': { rows: 1_000, items: 2_000 },
+  pathological: { rows: 1, items: 1_000, pathological: true },
 };
 
-function generateData(scenario: Scenario, revision = 0): BenchmarkData {
+function intervalFor(index: number, density: OverlapDensity, revision: number): { startDay: number; durationDays: number } {
+  if (density === 'pathological') return { startDay: 150 + revision, durationDays: 45 };
+  if (density === 'low') {
+    return {
+      startDay: ((index * 7919 + revision * 37) % 540) - 90,
+      durationDays: 1 + ((index * 13) % 3),
+    };
+  }
+  if (density === 'heavy') {
+    return {
+      startDay: ((index * 173 + revision * 37) % 240) - 30,
+      durationDays: 45 + ((index * 29) % 45),
+    };
+  }
+  return {
+    startDay: ((index * 7919 + revision * 37) % 540) - 90,
+    durationDays: index % 11 === 0 ? 75 : 1 + ((index * 13) % 18),
+  };
+}
+
+function generateData(scenario: Scenario, density: OverlapDensity, revision = 0): BenchmarkData {
   const rows = Array.from({ length: scenario.rows }, (_, index) => ({
     id: `row-${index}`,
     label: `Team ${index + 1}`,
     height: 44 + (index % 3) * 4,
   }));
   const items = Array.from({ length: scenario.items }, (_, index): TimelineItem<ItemData> => {
-    const startDay = ((index * 7919 + revision * 37) % 540) - 90;
-    const durationDays = index % 11 === 0 ? 75 : 1 + ((index * 13) % 18);
+    const { startDay, durationDays } = intervalFor(index, density, revision);
     return {
       id: `task-${index}`,
-      rowId: rows[(index * 17) % rows.length]!.id,
+      rowId: rows[scenario.pathological ? 0 : (index * 17) % rows.length]!.id,
       start: BASE + startDay * DAY,
       end: BASE + (startDay + durationDays) * DAY,
       label: `Task ${index + 1}`,
@@ -95,28 +121,50 @@ async function measureOperation(root: HTMLElement, mutate: () => void): Promise<
   return performance.now() - start;
 }
 
-function layoutDuration(data: BenchmarkData, range: TimeRange, width: number): number {
+function layoutDuration(
+  data: BenchmarkData,
+  normalizedItems: ReturnType<typeof normalizeItems<ItemData>>,
+  range: TimeRange,
+  width: number,
+  overlapMode: OverlapMode,
+): number {
   return timed(() => layoutTimeline({
     range,
     rows: data.rows,
-    items: normalizeItems(data.items),
-    options: { width, rowLabelWidth: 140, rulerHeight: 42, defaultRowHeight: 48, itemHeight: 24 },
+    items: normalizedItems,
+    options: {
+      width,
+      rowLabelWidth: 140,
+      rulerHeight: 42,
+      defaultRowHeight: 48,
+      itemHeight: 24,
+      overlap: overlapMode === 'stack' ? { mode: 'stack', laneGap: STACK_LANE_GAP } : { mode: 'overlay' },
+    },
   })).duration;
 }
 
-async function runBenchmark(size: string, mode: string): Promise<Record<string, unknown>> {
+async function runBenchmark(
+  size: string,
+  rendering: string,
+  density: OverlapDensity,
+  overlapMode: OverlapMode,
+): Promise<Record<string, unknown>> {
   const scenario = scenarios[size] ?? scenarios.large!;
-  const data = generateData(scenario);
-  const replacement = generateData(scenario, 1);
+  const effectiveDensity = scenario.pathological ? 'pathological' : density;
+  const data = generateData(scenario, effectiveDensity);
+  const replacement = generateData(scenario, effectiveDensity, 1);
+  const normalizedItems = normalizeItems(data.items);
+  const normalizedReplacement = normalizeItems(replacement.items);
   const host = document.querySelector<HTMLElement>('#timeline-host')!;
   host.replaceChildren();
   let callbackCount = 0;
-  const rich = mode === 'rich';
+  const rich = rendering === 'rich';
 
   const construction = timed(() => createTimeline(host, {
     range: VIEWPORT,
     rows: data.rows,
     items: data.items,
+    overlap: overlapMode === 'stack' ? { mode: 'stack', laneGap: STACK_LANE_GAP } : { mode: 'overlay' },
     renderItem: rich ? (item) => {
       callbackCount += 1;
       const content = document.createElement('span');
@@ -132,16 +180,18 @@ async function runBenchmark(size: string, mode: string): Promise<Record<string, 
   const root = host.querySelector<HTMLElement>('.chronaxis')!;
   await nextFrame();
   void root.offsetHeight;
+  const initialVisibleItems = root.querySelectorAll('[data-chronaxis-item-id]').length;
+  const initialDomNodes = root.querySelectorAll('*').length;
 
   const width = host.clientWidth;
-  const initialLayout = layoutDuration(data, VIEWPORT, width);
+  const initialLayout = layoutDuration(data, normalizedItems, VIEWPORT, width, overlapMode);
   const initialCallbacks = callbackCount;
 
   const pan: number[] = [];
   const panLayout: number[] = [];
   for (let index = 0; index < SAMPLES; index += 1) {
     const range = { start: VIEWPORT.start + index * DAY, end: VIEWPORT.end + index * DAY };
-    panLayout.push(layoutDuration(data, range, width));
+    panLayout.push(layoutDuration(data, normalizedItems, range, width, overlapMode));
     pan.push(await measureOperation(root, () => timeline.setRange(range)));
   }
 
@@ -165,7 +215,7 @@ async function runBenchmark(size: string, mode: string): Promise<Record<string, 
   }
   host.style.width = '';
 
-  const replacementLayout = layoutDuration(replacement, VIEWPORT, width);
+  const replacementLayout = layoutDuration(replacement, normalizedReplacement, VIEWPORT, width, overlapMode);
   const replacementCallbacksBefore = callbackCount;
   const replacementDuration = await measureOperation(root, () => timeline.setData(replacement));
   const replacementCallbacks = callbackCount - replacementCallbacksBefore;
@@ -177,21 +227,24 @@ async function runBenchmark(size: string, mode: string): Promise<Record<string, 
     build: import.meta.env.MODE,
     measurement: 'public-api-operation-to-paint',
     scenario: size,
-    mode,
+    rendering,
+    overlapDensity: effectiveDensity,
+    overlapMode,
+    laneGap: overlapMode === 'stack' ? STACK_LANE_GAP : 0,
     rows: scenario.rows,
     totalItems: scenario.items,
-    visibleItems: root.querySelectorAll('[data-chronaxis-item-id]').length,
-    domNodes: root.querySelectorAll('*').length,
+    visibleItems: initialVisibleItems,
+    domNodes: initialDomNodes,
     initialConstructionMs: construction.duration,
-    initialLayoutReferenceMs: initialLayout,
+    initialCoreLayoutMs: initialLayout,
     initialCustomItemCallbacks: rich ? initialCallbacks : 0,
     panOperationMs: stats(pan),
-    panLayoutReferenceMs: stats(panLayout),
+    panCoreLayoutMs: stats(panLayout),
     zoomOperationMs: stats(zoom),
     selectionOperationMs: stats(selection),
     resizeOperationMs: stats(resize),
     dataReplacementOperationMs: replacementDuration,
-    dataReplacementLayoutReferenceMs: replacementLayout,
+    dataReplacementCoreLayoutMs: replacementLayout,
     dataReplacementCustomItemCallbacks: replacementCallbacks,
     fitReferenceMs: fitDuration,
   };
@@ -203,13 +256,29 @@ const controls = document.querySelector<HTMLFormElement>('#controls')!;
 const status = document.querySelector<HTMLElement>('#status')!;
 const results = document.querySelector<HTMLElement>('#results')!;
 
-async function execute(size: string, mode: string): Promise<void> {
-  status.textContent = `Running ${size} / ${mode}…`;
+async function execute(
+  size: string,
+  rendering: string,
+  density: OverlapDensity,
+  layout: LayoutSelection,
+): Promise<void> {
+  status.textContent = `Running ${size} / ${density} / ${layout}…`;
   document.body.dataset.benchmarkStatus = 'running';
   await nextFrame();
   try {
-    const result = await runBenchmark(size, mode);
-    results.textContent = JSON.stringify(result, null, 2);
+    const modes: OverlapMode[] = layout === 'compare' ? ['overlay', 'stack'] : [layout];
+    const benchmarkResults = [];
+    for (const overlapMode of modes) {
+      benchmarkResults.push(await runBenchmark(size, rendering, density, overlapMode));
+    }
+    results.textContent = JSON.stringify({
+      build: import.meta.env.MODE,
+      measurement: {
+        coreLayout: 'pure layoutTimeline with pre-normalized items',
+        publicOperationToPaint: 'public API mutation through two animation frames and forced layout',
+      },
+      results: benchmarkResults,
+    }, null, 2);
     document.body.dataset.benchmarkStatus = 'complete';
     status.textContent = 'Complete.';
   } catch (error) {
@@ -222,14 +291,23 @@ async function execute(size: string, mode: string): Promise<void> {
 controls.addEventListener('submit', (event) => {
   event.preventDefault();
   const data = new FormData(controls);
-  void execute(String(data.get('size')), String(data.get('mode')));
+  void execute(
+    String(data.get('size')),
+    String(data.get('rendering')),
+    String(data.get('density')) as OverlapDensity,
+    String(data.get('layout')) as LayoutSelection,
+  );
 });
 
 const params = new URLSearchParams(location.search);
 if (params.has('autorun')) {
   const size = params.get('size') ?? 'large';
-  const mode = params.get('mode') ?? 'rich';
+  const rendering = params.get('rendering') ?? params.get('mode') ?? 'rich';
+  const density = (params.get('density') ?? 'moderate') as OverlapDensity;
+  const layout = (params.get('layout') ?? 'compare') as LayoutSelection;
   (controls.elements.namedItem('size') as HTMLSelectElement).value = size;
-  (controls.elements.namedItem('mode') as HTMLSelectElement).value = mode;
-  void execute(size, mode);
+  (controls.elements.namedItem('rendering') as HTMLSelectElement).value = rendering;
+  (controls.elements.namedItem('density') as HTMLSelectElement).value = density;
+  (controls.elements.namedItem('layout') as HTMLSelectElement).value = layout;
+  void execute(size, rendering, density, layout);
 }

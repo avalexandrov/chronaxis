@@ -37,6 +37,25 @@
         </div>
         <ol id="event-log" aria-live="polite" aria-relevant="additions"></ol>
       </section>
+      <section class="overlap-demo" aria-labelledby="overlap-demo-heading">
+        <p class="eyebrow">Overlap layout</p>
+        <h2 id="overlap-demo-heading">One schedule, two pointer experiences</h2>
+        <p>Both timelines contain the same overlapping ranges in one row. Overlay preserves the legacy paint-order behavior; stack gives each item its own vertical lane.</p>
+        <div class="overlap-demo__grid">
+          <article class="overlap-demo__card">
+            <h3>Overlay (default)</h3>
+            <p>At a shared pixel, the item painted later receives the pointer event.</p>
+            <div id="overlay-overlap-timeline" class="overlap-demo__timeline" aria-label="Overlay overlap timeline"></div>
+            <p id="overlay-overlap-event" class="overlap-demo__event" aria-live="polite">Click either visible bar.</p>
+          </article>
+          <article class="overlap-demo__card">
+            <h3>Stack</h3>
+            <p>Separate lanes make each visible bar a distinct native hit target.</p>
+            <div id="stack-overlap-timeline" class="overlap-demo__timeline" aria-label="Stack overlap timeline"></div>
+            <p id="stack-overlap-event" class="overlap-demo__event" aria-live="polite">Click either visible bar.</p>
+          </article>
+        </div>
+      </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -1,6 +1,6 @@
 {
   "name": "@chronaxis/browser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Accessible interactive DOM/SVG timelines powered by Chronaxis core.",
   "keywords": ["timeline", "typescript", "visualization", "scheduler", "browser"],
   "repository": {
@@ -34,6 +34,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chronaxis/core": "0.1.0"
+    "@chronaxis/core": "0.2.0"
   }
 }

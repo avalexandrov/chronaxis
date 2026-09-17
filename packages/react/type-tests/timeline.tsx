@@ -28,6 +28,7 @@ const timeline = (
     rows={rows}
     items={items}
     initialRange={{ start: 0, end: 100 }}
+    overlap={{ mode: 'stack', laneGap: 4 }}
     onItemClick={(event) => {
       expectTypeOf(event.item.data?.owner).toEqualTypeOf<string | undefined>();
       expectTypeOf(event.item.data?.priority).toEqualTypeOf<number | undefined>();

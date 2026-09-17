@@ -2,6 +2,22 @@
 
 All notable user-facing changes to Chronaxis are documented here.
 
+## 0.2.0
+
+### Added
+
+- Optional overlap-aware item layout through `overlap: { mode: 'overlay' | 'stack', laneGap? }`.
+- Deterministic per-row lane assignment, automatic stacked-row growth, and lane placement that remains stable through pan and zoom.
+- Overlay and stack comparison in the vanilla example, plus overlap-density and pathological single-row scenarios in the performance harness.
+
+### Fixed
+
+- Stack mode gives temporally overlapping same-row items separate native pointer hit targets, removing the ambiguity caused by visually overlaying bars.
+
+### Compatibility
+
+- `overlay` remains the default, preserving existing `0.1.x` geometry and DOM paint-order behavior unless applications opt into `stack`.
+
 ## 0.1.0
 
 ### Added

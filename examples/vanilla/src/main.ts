@@ -81,6 +81,57 @@ const timeline = createTimeline<DemoItemData>(container, {
   },
 });
 
+const overlapRows: readonly TimelineRow[] = [
+  { id: 'release-work', label: 'Release work' },
+];
+
+const overlapItems: readonly TimelineItem<DemoItemData>[] = [
+  {
+    id: 'checkout-ui',
+    rowId: 'release-work',
+    start: '2026-02-10T00:00:00Z',
+    end: '2026-02-14T00:00:00Z',
+    label: 'Checkout UI',
+    data: { owner: 'Mina', status: 'done' },
+  },
+  {
+    id: 'experiment-wiring',
+    rowId: 'release-work',
+    start: '2026-02-12T00:00:00Z',
+    end: '2026-02-16T00:00:00Z',
+    label: 'Experiment wiring',
+    data: { owner: 'Omar', status: 'active' },
+  },
+];
+
+function mountOverlapDemo(
+  containerId: string,
+  eventId: string,
+  mode: 'overlay' | 'stack',
+): void {
+  const demoContainer = document.querySelector<HTMLElement>(`#${containerId}`);
+  const eventOutput = document.querySelector<HTMLElement>(`#${eventId}`);
+  if (!demoContainer || !eventOutput) throw new Error('Missing overlap demo elements.');
+
+  const demo = createTimeline<DemoItemData>(demoContainer, {
+    range: { start: '2026-02-09T00:00:00Z', end: '2026-02-17T00:00:00Z' },
+    rows: overlapRows,
+    items: overlapItems,
+    itemHeight: 26,
+    // Overlay is intentionally omitted here to demonstrate the default.
+    overlap: mode === 'stack' ? { mode, laneGap: 8 } : undefined,
+  });
+  demo.on('itemClick', ({ item }) => {
+    eventOutput.textContent = `Activated: ${item.label ?? item.id}`;
+  });
+  demo.on('rangeChange', ({ source }) => {
+    if (source === 'pan') eventOutput.textContent = 'Panned — item lanes remain fixed.';
+  });
+}
+
+mountOverlapDemo('overlay-overlap-timeline', 'overlay-overlap-event', 'overlay');
+mountOverlapDemo('stack-overlap-timeline', 'stack-overlap-event', 'stack');
+
 const eventLog = document.querySelector<HTMLOListElement>('#event-log');
 
 function logEvent(name: string, detail: string): void {

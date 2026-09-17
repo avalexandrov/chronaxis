@@ -161,6 +161,36 @@ describe('Timeline', () => {
     expect(observers).toHaveLength(1);
   });
 
+  it('passes stack overlap geometry at creation and does not reconfigure it after mount', async () => {
+    const ref = { current: null as TimelineInstance<TaskData> | null };
+    const concurrentItems: TimelineItem<TaskData>[] = [
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-16', label: 'First', data: { owner: 'Alex' } },
+      { id: 'second', rowId: 'row', start: '2026-01-10', end: '2026-01-20', label: 'Second', data: { owner: 'Bea' } },
+    ];
+    const view = (overlap: { mode: 'overlay' | 'stack'; laneGap?: number }) => (
+      <Timeline
+        ref={ref}
+        rows={rows}
+        items={concurrentItems}
+        initialRange={initialRange}
+        overlap={overlap}
+      />
+    );
+
+    await render(view({ mode: 'stack', laneGap: 8 }));
+    const instance = ref.current;
+    const firstTop = item('first').style.top;
+    const secondTop = item('second').style.top;
+    expect(firstTop).not.toBe(secondTop);
+
+    await render(view({ mode: 'overlay' }));
+    await flushFrames();
+    expect(ref.current).toBe(instance);
+    expect(item('first').style.top).toBe(firstTop);
+    expect(item('second').style.top).toBe(secondTop);
+    expect(observers).toHaveLength(1);
+  });
+
   it('preserves selection reconciliation through reactive data updates', async () => {
     const ref = { current: null as TimelineInstance<TaskData> | null };
     const selection = vi.fn();

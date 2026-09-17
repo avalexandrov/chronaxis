@@ -66,6 +66,10 @@ function rowLabels(container: HTMLElement): string[] {
     .map((row) => row.textContent ?? '');
 }
 
+function rowsOf(container: HTMLElement): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>('.chronaxis-row')];
+}
+
 function wheel(root: HTMLElement, options: WheelEventInit): WheelEvent {
   const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: 370, clientY: 100, ...options });
   Object.defineProperties(event, {
@@ -700,6 +704,83 @@ describe('dynamic data updates', () => {
     expect([...container.querySelectorAll<HTMLElement>('[data-chronaxis-item-id]')]
       .map((item) => item.dataset.chronaxisItemId)).toEqual(['bottom', 'top']);
   });
+
+  it('reflows keyed browser nodes for stack overlap updates without losing selection or focus', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.rows = [
+      { id: 'row', label: 'First' },
+      { id: 'second', label: 'Second' },
+    ];
+    options.items = [
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-10', label: 'First' },
+      { id: 'item', rowId: 'row', start: '2026-01-10', end: '2026-01-15', label: 'Selected' },
+      { id: 'tail', rowId: 'second', start: '2026-01-09', end: '2026-01-16', label: 'Tail' },
+    ];
+    options.overlap = { mode: 'stack', laneGap: 6 };
+    const renderRowLabel = vi.fn((row: { label: string }) => `Row: ${row.label}`);
+    options.renderRowLabel = renderRowLabel;
+    options.renderItem = (item) => {
+      const content = container.ownerDocument.createElement('span');
+      content.textContent = `Custom ${item.label ?? item.id}`;
+      return content;
+    };
+    const timeline = createTimeline(container, options);
+    const firstRow = container.querySelector<HTMLElement>('[data-chronaxis-row-id="row"]')!;
+    const secondRow = container.querySelector<HTMLElement>('[data-chronaxis-row-id="second"]')!;
+    const selected = itemOf(container);
+
+    expect(firstRow.style.height).toBe('56px');
+    expect(secondRow.style.top).toBe('56px');
+    timeline.selectItem('item');
+    flushFrame();
+    selected.focus();
+
+    // Create an overlap: the row expands and the same selected DOM node moves into lane 1.
+    timeline.setItems([
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-12', label: 'First' },
+      { id: 'item', rowId: 'row', start: '2026-01-08', end: '2026-01-15', label: 'Selected' },
+      { id: 'tail', rowId: 'second', start: '2026-01-09', end: '2026-01-16', label: 'Tail' },
+    ]);
+    flushFrame();
+
+    expect(itemOf(container)).toBe(selected);
+    expect(firstRow.style.height).toBe('88px');
+    expect(secondRow.style.top).toBe('88px');
+    expect(Number.parseFloat(itemOf(container, 'item').style.top))
+      .toBeGreaterThan(Number.parseFloat(itemOf(container, 'first').style.top));
+    expect(itemOf(container).querySelector('span')?.textContent).toBe('Custom Selected');
+    expect(itemOf(container).dataset.selected).toBe('true');
+    expect(document.activeElement).toBe(selected);
+
+    // Remove the overlap: lanes collapse and the following row moves back up.
+    timeline.setItems([
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-10', label: 'First' },
+      { id: 'item', rowId: 'row', start: '2026-01-10', end: '2026-01-15', label: 'Selected' },
+      { id: 'tail', rowId: 'second', start: '2026-01-09', end: '2026-01-16', label: 'Tail' },
+    ]);
+    flushFrame();
+
+    expect(firstRow.style.height).toBe('56px');
+    expect(secondRow.style.top).toBe('56px');
+
+    // Moving the selected item into another row recomputes only the affected row geometry.
+    timeline.setItems([
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-10', label: 'First' },
+      { id: 'item', rowId: 'second', start: '2026-01-08', end: '2026-01-15', label: 'Selected' },
+      { id: 'tail', rowId: 'second', start: '2026-01-09', end: '2026-01-16', label: 'Tail' },
+    ]);
+    flushFrame();
+
+    expect(itemOf(container)).toBe(selected);
+    expect(itemOf(container).dataset.rowId).toBe('second');
+    expect(secondRow.style.top).toBe('56px');
+    expect(secondRow.style.height).toBe('88px');
+    expect(timeline.getSelectedItemId()).toBe('item');
+    expect(document.activeElement).toBe(selected);
+    expect(renderRowLabel).toHaveBeenCalledTimes(2);
+    expect(secondRow.querySelector('.chronaxis-row-label')?.textContent).toBe('Row: Second');
+  });
 });
 
 describe('data reconciliation', () => {
@@ -800,6 +881,104 @@ describe('dynamic data typing', () => {
       // @ts-expect-error Incorrect item data is rejected by the instance generic.
       typedTimeline.setItems([{ id: 'x', rowId: 'row', start: 0, data: { priority: 1 } }]);
     }
+  });
+});
+
+describe('overlap-aware layout', () => {
+  it('renders stack lanes as separate wrappers while preserving input order and one custom row label', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.items = [
+      { id: 'checkout', rowId: 'row', start: '2026-01-05', end: '2026-01-18', label: 'Checkout UI', data: { owner: 'Alex' } },
+      { id: 'experiment', rowId: 'row', start: '2026-01-10', end: '2026-01-22', label: 'Experiment wiring', data: { owner: 'Bea' } },
+    ];
+    options.overlap = { mode: 'stack', laneGap: 8 };
+    options.renderRowLabel = vi.fn((row) => `${row.label} (2 items)`);
+
+    createTimeline(container, options);
+
+    const [checkout, experiment] = [itemOf(container, 'checkout'), itemOf(container, 'experiment')];
+    expect(checkout.style.top).toBe('15px');
+    expect(experiment.style.top).toBe('49px');
+    expect(checkout.style.height).toBe('26px');
+    expect(experiment.style.height).toBe('26px');
+    expect(rowsOf(container)[0]?.style.height).toBe('90px');
+    expect(rowLabels(container)).toEqual(['Original row (2 items)']);
+    expect(options.renderRowLabel).toHaveBeenCalledTimes(1);
+    expect([...container.querySelectorAll<HTMLElement>('[data-chronaxis-item-id]')]
+      .map((node) => node.dataset.chronaxisItemId)).toEqual(['checkout', 'experiment']);
+  });
+
+  it('recomputes stack lanes and row heights for item and row updates while selection and focus follow the item ID', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.items = [
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-08', label: 'First', data: { owner: 'Alex' } },
+      { id: 'second', rowId: 'row', start: '2026-01-12', end: '2026-01-18', label: 'Second', data: { owner: 'Bea' } },
+    ];
+    options.overlap = { mode: 'stack' };
+    const timeline = createTimeline(container, options);
+    timeline.selectItem('second');
+    flushFrame();
+    itemOf(container, 'second').focus();
+
+    timeline.setItems([
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-18', label: 'First', data: { owner: 'Alex' } },
+      { id: 'second', rowId: 'row', start: '2026-01-10', end: '2026-01-22', label: 'Second', data: { owner: 'Bea' } },
+    ]);
+    flushFrame();
+    expect(rowsOf(container)[0]?.style.height).toBe('86px');
+    expect(itemOf(container, 'first').style.top).not.toBe(itemOf(container, 'second').style.top);
+    expect(itemOf(container, 'second').dataset.selected).toBe('true');
+    expect(document.activeElement).toBe(itemOf(container, 'second'));
+
+    timeline.setItems([
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-08', label: 'First', data: { owner: 'Alex' } },
+      { id: 'second', rowId: 'row', start: '2026-01-12', end: '2026-01-18', label: 'Second', data: { owner: 'Bea' } },
+    ]);
+    flushFrame();
+    expect(rowsOf(container)[0]?.style.height).toBe('56px');
+    expect(itemOf(container, 'first').style.top).toBe(itemOf(container, 'second').style.top);
+    expect(itemOf(container, 'second').dataset.selected).toBe('true');
+    expect(document.activeElement).toBe(itemOf(container, 'second'));
+
+    timeline.setData({
+      rows: [{ id: 'row', label: 'Original row' }, { id: 'moved', label: 'Moved work' }],
+      items: [
+        { id: 'first', rowId: 'moved', start: '2026-01-05', end: '2026-01-18', label: 'First', data: { owner: 'Alex' } },
+        { id: 'second', rowId: 'moved', start: '2026-01-10', end: '2026-01-22', label: 'Second', data: { owner: 'Bea' } },
+      ],
+    });
+    flushFrame();
+    expect(rowsOf(container).map((row) => row.style.height)).toEqual(['56px', '86px']);
+    expect(itemOf(container, 'second').dataset.rowId).toBe('moved');
+    expect(itemOf(container, 'second').dataset.selected).toBe('true');
+    expect(document.activeElement).toBe(itemOf(container, 'second'));
+  });
+
+  it('keeps stack lane positions fixed through viewport changes', () => {
+    const container = containerAt(600);
+    const options = timelineOptions();
+    options.items = [
+      { id: 'first', rowId: 'row', start: '2026-01-05', end: '2026-01-23', label: 'First', data: { owner: 'Alex' } },
+      { id: 'second', rowId: 'row', start: '2026-01-10', end: '2026-01-20', label: 'Second', data: { owner: 'Bea' } },
+    ];
+    options.overlap = { mode: 'stack' };
+    const timeline = createTimeline(container, options);
+    const firstTop = itemOf(container, 'first').style.top;
+    const secondTop = itemOf(container, 'second').style.top;
+
+    timeline.scrollTo('2026-01-16');
+    flushFrame();
+    timeline.zoomIn();
+    flushFrame();
+    expect(itemOf(container, 'first').style.top).toBe(firstTop);
+    expect(itemOf(container, 'second').style.top).toBe(secondTop);
+
+    timeline.setRange({ start: '2026-01-01', end: '2026-02-01' });
+    flushFrame();
+    expect(itemOf(container, 'first').style.top).toBe(firstTop);
+    expect(itemOf(container, 'second').style.top).toBe(secondTop);
   });
 });
 

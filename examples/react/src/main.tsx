@@ -56,7 +56,7 @@ function App() {
       <p className="eyebrow">Thin framework adapter, full Chronaxis engine</p>
       <h1>Chronaxis — React Adapter</h1>
       <p className="intro">
-        Rows and items come from React state. Viewport interaction stays inside Chronaxis.
+        Rows and items come from React state. Concurrent discovery work uses creation-time stack lanes while viewport interaction stays inside Chronaxis.
       </p>
 
       <div className="toolbar" aria-label="Timeline controls">
@@ -80,6 +80,7 @@ function App() {
           items={data.items}
           initialRange={initialRange}
           interactions={{ pan: true, wheelZoom: 'modifier' }}
+          overlap={{ mode: 'stack' }}
           getItemClassName={(item) => `status-${item.data?.status ?? 'planned'}`}
           renderItem={(item, context) => {
             const content = document.createElement('span');

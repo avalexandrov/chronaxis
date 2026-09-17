@@ -24,6 +24,7 @@ Chronaxis is a TypeScript library for interactive timeline and chart-style inter
 
 - Millisecond, `Date`, and ISO-string time inputs
 - Responsive DOM/SVG rendering with horizontal item culling and keyed DOM reuse
+- Optional overlap-aware stack lanes with automatic row growth; legacy overlays remain the default
 - Pointer pan, Ctrl/Cmd-wheel zoom, imperative navigation, and fit-to-data
 - Single selection, keyboard activation, focus handling, and typed events
 - Atomic row/item replacement without implicitly changing the viewport
@@ -104,7 +105,7 @@ const items: TimelineItem<TaskData>[] = [/* ... */];
 />
 ```
 
-`rows`, `items`, event handlers, and DOM customization callbacks are reactive. `initialRange`, `viewport`, `interactions`, and geometry options are creation-time props; changing them after mount does not recreate or reconfigure the instance. Range and selection are owned by Chronaxis and can be observed through events or changed through the forwarded `TimelineInstance` ref. Ordinary safe `div` attributes are passed to the outer element.
+`rows`, `items`, event handlers, and DOM customization callbacks are reactive. `initialRange`, `viewport`, `interactions`, `overlap`, and geometry options are creation-time props; changing them after mount does not recreate or reconfigure the instance. Range and selection are owned by Chronaxis and can be observed through events or changed through the forwarded `TimelineInstance` ref. Ordinary safe `div` attributes are passed to the outer element.
 
 ## Data model
 
@@ -126,6 +127,39 @@ interface TimelineItem<T = unknown> {
   data?: T;
 }
 ```
+
+## Overlapping items
+
+Chronaxis preserves the `0.1.x` overlay behavior by default. That is useful when overlays are intentional, but same-row bars that overlap in time also share pointer pixels. For concurrent work, opt into stack layout at creation time:
+
+```ts
+const timeline = createTimeline(container, {
+  range: { start: '2026-01-01', end: '2026-04-01' },
+  rows,
+  items,
+  overlap: {
+    mode: 'stack',
+    laneGap: 4, // optional; 4px is the default in stack mode
+  },
+});
+```
+
+`stack` assigns lanes independently within each row, so temporally overlapping items receive separate vertical hit targets. Normal ranged items whose intervals only touch (`A.end <= B.start`) may reuse a lane. A zero-duration point at `t` collides with points and ranges that begin at `t`, as well as ranges that contain `t`; it may reuse a lane with a range ending at `t`. Lanes are deterministic—ties are ordered by start time, end time, then source input order—and are calculated from the complete row data before horizontal culling, so pan and zoom never reshuffle visible items vertically.
+
+The configured row height remains a minimum. A stacked row grows to fit the configured `itemHeight`, every needed lane, and the lane gaps; it does not shrink an item simply because the base row is shorter. `laneGap` must be a finite number greater than or equal to zero. A custom row `height` is likewise a minimum in stack mode. Overlay mode retains its original row and item geometry, including its existing effective-height clamp.
+
+In React, pass the same creation-time configuration:
+
+```tsx
+<Timeline
+  rows={rows}
+  items={items}
+  initialRange={{ start: '2026-01-01', end: '2026-04-01' }}
+  overlap={{ mode: 'stack' }}
+/>
+```
+
+Changing `overlap` after mount does not reconfigure an existing `Timeline`; remount it when a different creation-time layout policy is required.
 
 ## Navigation
 
@@ -190,7 +224,7 @@ Chronaxis targets current evergreen Chromium, Firefox, and WebKit browsers. It r
 
 ## Performance
 
-The layout engine horizontally culls off-screen items and the browser renderer reuses DOM by stable ID. The development harness covers datasets up to 10,000 items and 1,000 rows. Results depend mainly on visible content, browser, hardware, and custom renderer complexity and are not performance guarantees. See [the Phase 6 benchmark report](docs/performance-phase-6.md) for methodology and recorded measurements.
+The layout engine horizontally culls off-screen items and the browser renderer reuses DOM by stable ID. Stack lane assignment still runs from complete row data before culling, while only horizontally visible items enter the DOM. The development harness covers 100, 1,000, 5,000, and 10,000-item datasets at low, moderate, and heavy overlap densities, plus a one-row pathological-overlap case. It can compare overlay and stack core-layout references alongside public operation-to-paint timing. Results depend mainly on visible content, browser, hardware, and custom renderer complexity and are not performance guarantees. See [the Phase 6 benchmark report](docs/performance-phase-6.md) for methodology and recorded measurements.
 
 ## Architecture
 
@@ -203,7 +237,7 @@ The layout engine horizontally culls off-screen items and the browser renderer r
 
 data
   ↓
-layout / geometry
+layout / lanes / geometry
   ↓
 scene
   ↓

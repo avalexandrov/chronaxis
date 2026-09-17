@@ -27,4 +27,17 @@ h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spa
 #event-log:empty::before { content: "Interact with the timeline to see its public events."; display: block; margin-left: -26px; padding: 9px 0; color: #5f6b7a; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 #event-log li { padding: 3px 0; }
 #event-log time { display: inline-block; min-width: 82px; color: #5f6b7a; }
+.overlap-demo { margin-top: 30px; padding: 24px; border: 1px solid #d5dce7; border-radius: 12px; background: #f8fafc; }
+.overlap-demo .eyebrow { margin-bottom: 5px; }
+.overlap-demo h2 { margin: 0; color: #273249; font-size: 20px; letter-spacing: -.02em; }
+.overlap-demo > p:not(.eyebrow) { max-width: 720px; margin: 8px 0 18px; color: #5f6b7a; font-size: 13px; line-height: 1.5; }
+.overlap-demo__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.overlap-demo__card { min-width: 0; padding: 16px; border: 1px solid #dbe3ed; border-radius: 9px; background: #fff; }
+.overlap-demo__card h3 { margin: 0; color: #273249; font-size: 15px; }
+.overlap-demo__card > p { min-height: 38px; margin: 6px 0 12px; color: #5f6b7a; font-size: 12px; line-height: 1.45; }
+.overlap-demo__timeline { --chronaxis-ruler-background: #eef1ff; --chronaxis-grid-color: #d9dff2; --chronaxis-item-border-radius: 6px; --chronaxis-focus-ring: 3px solid #f59e0b; width: 100%; min-width: 0; }
+.overlap-demo__timeline .chronaxis-item[data-chronaxis-item-id="checkout-ui"] { --chronaxis-item-background: #176b57; }
+.overlap-demo__timeline .chronaxis-item[data-chronaxis-item-id="experiment-wiring"] { --chronaxis-item-background: #5367e8; }
+.overlap-demo__event { min-height: auto !important; margin: 10px 0 0 !important; color: #3546ac !important; font-size: 12px !important; font-weight: 700; }
+@media (max-width: 760px) { .overlap-demo { padding: 18px; } .overlap-demo__grid { grid-template-columns: 1fr; } .overlap-demo__card > p { min-height: 0; } }
 @media (max-width: 640px) { main { width: calc(100% - 24px); padding: 40px 0; } }

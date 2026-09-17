@@ -20,12 +20,27 @@
             <option value="very-large">Very large · 100 rows / 10,000 items</option>
             <option value="rows-500">Row-heavy · 500 rows / 1,000 items</option>
             <option value="rows-1000">Row-heavy · 1,000 rows / 2,000 items</option>
+            <option value="pathological">Pathological · 1 row / 1,000 simultaneous items</option>
           </select>
         </label>
         <label>Rendering
-          <select name="mode">
+          <select name="rendering">
             <option value="simple">Simple labels</option>
             <option value="rich" selected>Rich DOM</option>
+          </select>
+        </label>
+        <label>Overlap density
+          <select name="density">
+            <option value="low">Low</option>
+            <option value="moderate" selected>Moderate</option>
+            <option value="heavy">Heavy</option>
+          </select>
+        </label>
+        <label>Layout
+          <select name="layout">
+            <option value="compare" selected>Compare overlay + stack</option>
+            <option value="overlay">Overlay only</option>
+            <option value="stack">Stack only</option>
           </select>
         </label>
         <button type="submit">Run benchmark</button>

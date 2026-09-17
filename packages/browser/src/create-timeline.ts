@@ -158,6 +158,7 @@ function createRuntimeState<T>(options: TimelineOptions<T>): RuntimeState<T> {
       rowLabelWidth: options.rowLabelWidth,
       itemHeight: options.itemHeight,
       minimumItemWidth: options.minimumItemWidth,
+      overlap: options.overlap ? { ...options.overlap } : undefined,
     },
     zoomLimits: { minDuration, maxDuration },
     panEnabled: options.interactions?.pan ?? true,

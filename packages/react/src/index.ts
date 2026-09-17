@@ -5,6 +5,8 @@ export type {
   ItemClassNameGetter,
   ItemRenderContext,
   ItemRenderer,
+  OverlapMode,
+  OverlapOptions,
   RangeChangeEvent,
   RangeChangeSource,
   RowClassNameGetter,

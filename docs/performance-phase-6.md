@@ -72,6 +72,39 @@ The row-heavy curve does not justify row virtualization yet. Even with 1,000 row
 
 The final performance-example production build emits 33.04 kB JavaScript (9.10 kB gzip) and 4.21 kB CSS (1.39 kB gzip). Compared with the baseline, JavaScript increased by 6.24 kB raw and 1.09 kB gzip; CSS is unchanged. This comparison includes the expanded benchmark reporting fields as well as the renderer change.
 
+## 0.2.0 overlap-layout measurements
+
+The harness now provides independent controls for dataset size, overlap density, rendering content, and layout mode. `Compare overlay + stack` runs the exact same deterministic data in both modes. It covers 100, 1,000, 5,000, and 10,000 items at low, moderate, and heavy overlap density, plus a deliberately pathological one-row case with 1,000 simultaneous items.
+
+For this release-candidate record, a production Vite build ran in headless Chromium at a 1280px viewport. Each pan figure is the median of 24 samples; the parenthetical number is p95. `initial / pan` measurements below are pure `layoutTimeline` calls with items normalized before timing, so they isolate core geometry, horizontal culling, and (for stack) full-row lane assignment. Values are milliseconds.
+
+| Items | Density | Initially visible | Overlay core: initial / pan p50 (p95) | Stack core: initial / pan p50 (p95) |
+| ---: | --- | ---: | ---: | ---: |
+| 100 | Low | 3 | 0.4 / 0.8 (1.2) | 0.9 / 1.1 (1.3) |
+| 100 | Moderate | 4 | 0.6 / 1.0 (1.2) | 0.6 / 1.0 (1.3) |
+| 100 | Heavy | 40 | 0.5 / 0.6 (1.0) | 0.4 / 0.5 (1.1) |
+| 1,000 | Low | 58 | 0.5 / 0.6 (0.9) | 1.0 / 0.9 (1.3) |
+| 1,000 | Moderate | 82 | 0.7 / 0.7 (0.9) | 0.8 / 0.9 (1.2) |
+| 1,000 | Heavy | 408 | 0.7 / 0.5 (0.6) | 0.9 / 0.7 (0.8) |
+| 5,000 | Low | 308 | 1.3 / 0.8 (1.0) | 1.4 / 1.1 (1.5) |
+| 5,000 | Moderate | 445 | 1.2 / 0.7 (1.2) | 1.4 / 1.2 (1.7) |
+| 5,000 | Heavy | 2,043 | 1.4 / 0.6 (1.4) | 1.5 / 1.2 (1.7) |
+| 10,000 | Low | 609 | 1.1 / 0.8 (1.1) | 2.6 / 1.4 (2.8) |
+| 10,000 | Moderate | 881 | 2.0 / 0.8 (1.5) | 2.9 / 1.7 (2.7) |
+| 10,000 | Heavy | 4,084 | 1.4 / 0.8 (1.3) | 3.2 / 1.7 (2.6) |
+
+The expected stack cost is the full-row sort-and-partition pass; it is visible at 10,000 items but remains in the low-millisecond range in this environment. Visible-item count still follows the viewport rather than total data. Stack does not create off-screen item wrappers merely to establish lanes.
+
+### Browser operation-to-paint context
+
+The harness also records public API mutation through two animation frames and a forced layout. That number includes frame scheduling and is intentionally not presented as a direct DOM-only duration. It remains useful for comparing the same browser path across modes. In the 10,000-item, moderate-overlap rich-DOM case, both modes rendered 881 items and 3,762 DOM nodes; median pan operation-to-paint was 32.6 ms for overlay and 31.7 ms for stack. The matching pure core pan median was 0.7 ms and 1.6 ms respectively. The one-sample construction figures (14.6 ms overlay, 10.0 ms stack) are too noisy to treat as a performance claim.
+
+### Pathological single-row overlap
+
+The stress scenario places 1,000 simultaneous items in one row. Overlay and stack both rendered 1,000 visible items and 1,040 DOM nodes in the simple-label run. Stack produced 1,000 lanes as expected; its initial core layout was 0.8 ms, pan median 0.7 ms, and pan p95 1.4 ms, compared with 0.7 ms, 0.4 ms, and 0.7 ms for overlay. This confirms the intended interval-partitioning path remains bounded under maximal concurrency; it is engineering evidence rather than a CI threshold.
+
+The current performance-example production build emits 29.10 kB JavaScript (9.89 kB gzip) and 4.21 kB CSS (1.39 kB gzip). These figures include the overlap benchmark controls and reports.
+
 ## Decision
 
 Phase 6 stops at keyed DOM reuse. The measurements do not justify Canvas, row virtualization, a framework adapter, or a public performance API. Timing values remain documentation evidence rather than assertions in automated tests.

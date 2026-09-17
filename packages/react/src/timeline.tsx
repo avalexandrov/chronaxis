@@ -18,6 +18,7 @@ import {
   type RowLabelRenderer,
   type SelectionChangeEvent,
   type ItemClickEvent,
+  type OverlapOptions,
   type TickFormatter,
   type TimeRangeInput,
   type TimelineInstance,
@@ -50,6 +51,8 @@ interface CreationProps {
   rowLabelWidth?: number;
   itemHeight?: number;
   minimumItemWidth?: number;
+  /** Creation-time overlapping-item layout behavior. */
+  overlap?: OverlapOptions;
 }
 
 /** Props for the React-owned timeline container. Rows, items, and callbacks are reactive. */
@@ -86,6 +89,7 @@ function TimelineInner<T>(
     rowLabelWidth,
     itemHeight,
     minimumItemWidth,
+    overlap,
     onRangeChange,
     onItemClick,
     onSelectionChange,
@@ -127,6 +131,7 @@ function TimelineInner<T>(
       rowLabelWidth,
       itemHeight,
       minimumItemWidth,
+      overlap,
       renderItem: (item, context) => {
         const renderer = latest.current.renderItem;
         return renderer ? renderer(item, context) : item.label ?? '';

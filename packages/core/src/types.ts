@@ -110,6 +110,17 @@ export interface TimelineScene {
   gridLines: SceneGridLine[];
 }
 
+/** Behavior for temporally overlapping items within one timeline row. */
+export type OverlapMode = 'overlay' | 'stack';
+
+/** Geometry options for overlap-aware item layout. */
+export interface OverlapOptions {
+  /** `overlay` preserves the legacy behavior; `stack` gives colliding items separate lanes. */
+  mode?: OverlapMode;
+  /** Vertical pixels between stacked item lanes. Defaults to 4 in stack mode. */
+  laneGap?: number;
+}
+
 /** Geometry options for the pure layout engine. */
 export interface LayoutOptions {
   width: number;
@@ -118,4 +129,5 @@ export interface LayoutOptions {
   rowLabelWidth?: number;
   itemHeight?: number;
   minimumItemWidth?: number;
+  overlap?: OverlapOptions;
 }
