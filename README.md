@@ -7,7 +7,7 @@ Chronaxis is a TypeScript library for interactive timeline and chart-style inter
 [![npm version](https://img.shields.io/npm/v/%40chronaxis%2Fbrowser.svg)](https://www.npmjs.com/package/@chronaxis/browser)
 [![weekly downloads](https://img.shields.io/npm/dw/%40chronaxis%2Fbrowser.svg)](https://www.npmjs.com/package/@chronaxis/browser)
 
-![Chronaxis timeline showing multiple project tracks and scheduled items](docs/assets/chronaxis-preview.png)
+![Chronaxis project timeline showing overlapping work arranged in separate stack lanes](docs/assets/chronaxis-preview.png)
 
 ## Why Chronaxis?
 
