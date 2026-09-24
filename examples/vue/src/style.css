@@ -1,0 +1,13 @@
+:root { font-family: ui-sans-serif, system-ui, sans-serif; color: #172033; background: #f3f6fb; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button { font: inherit; }
+main { width: min(1000px, calc(100% - 32px)); margin: 48px auto; }
+h1 { margin: 4px 0 8px; }
+p { color: #5f6b7a; }
+.eyebrow { color: #3546ac; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 16px; }
+button { padding: 8px 12px; border: 1px solid #ccd6e5; border-radius: 7px; background: white; cursor: pointer; }
+.vue-timeline { min-height: 330px; border: 1px solid #d7dfeb; border-radius: 12px; background: white; overflow: hidden; }
+section { margin-top: 18px; padding: 12px 18px; background: white; border: 1px solid #d7dfeb; border-radius: 10px; }
+section h2 { font-size: 16px; }

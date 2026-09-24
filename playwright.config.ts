@@ -20,6 +20,11 @@ export default defineConfig({
       url: 'http://127.0.0.1:4174',
       reuseExistingServer: !process.env.CI,
     },
+    {
+      command: 'npm run dev -w @chronaxis/vue-example -- --host 127.0.0.1 --port 4175',
+      url: 'http://127.0.0.1:4175',
+      reuseExistingServer: !process.env.CI,
+    },
   ],
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

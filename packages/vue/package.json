@@ -1,12 +1,12 @@
 {
-  "name": "@chronaxis/react",
+  "name": "@chronaxis/vue",
   "version": "0.3.0",
-  "description": "Thin React adapter for the Chronaxis timeline engine.",
-  "keywords": ["timeline", "typescript", "visualization", "scheduler", "react"],
+  "description": "Thin Vue 3 adapter for the Chronaxis timeline engine.",
+  "keywords": ["timeline", "typescript", "visualization", "scheduler", "vue"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/avalexandrov/chronaxis.git",
-    "directory": "packages/react"
+    "directory": "packages/vue"
   },
   "homepage": "https://github.com/avalexandrov/chronaxis#readme",
   "bugs": "https://github.com/avalexandrov/chronaxis/issues",
@@ -24,20 +24,18 @@
   "files": ["dist"],
   "engines": { "node": ">=18" },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "vite build && rm -f tsconfig.tsbuildinfo && vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.type-tests.json --noEmit"
+    "typecheck": "vue-tsc -p tsconfig.json --noEmit && vue-tsc -p tsconfig.type-tests.json --noEmit"
   },
   "dependencies": {
     "@chronaxis/browser": "0.3.0"
   },
   "peerDependencies": {
-    "react": ">=18.2.0 <20.0.0"
+    "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "@vitejs/plugin-vue": "^6.0.0",
+    "vue": "^3.5.43"
   }
 }

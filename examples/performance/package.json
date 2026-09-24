@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chronaxis/browser": "0.2.0",
-    "@chronaxis/core": "0.2.0"
+    "@chronaxis/browser": "0.3.0",
+    "@chronaxis/core": "0.3.0"
   }
 }

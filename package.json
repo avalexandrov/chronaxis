@@ -8,13 +8,14 @@
     "examples/*"
   ],
   "scripts": {
-    "build:packages": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/react",
-    "build": "npm run build:packages && npm run build -w @chronaxis/vanilla-example && npm run build -w @chronaxis/performance-example && npm run build -w @chronaxis/react-example",
+    "build:packages": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/react && npm run build -w @chronaxis/vue",
+    "build": "npm run build:packages && npm run build -w @chronaxis/vanilla-example && npm run build -w @chronaxis/performance-example && npm run build -w @chronaxis/react-example && npm run build -w @chronaxis/vue-example",
     "dev": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run dev -w @chronaxis/vanilla-example",
     "dev:react": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/react && npm run dev -w @chronaxis/react-example",
-    "test": "npm run build:packages && npm run test -w @chronaxis/core && npm run test -w @chronaxis/browser && npm run test -w @chronaxis/react",
+    "dev:vue": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/vue && npm run dev -w @chronaxis/vue-example",
+    "test": "npm run build:packages && npm run test -w @chronaxis/core && npm run test -w @chronaxis/browser && npm run test -w @chronaxis/react && npm run test -w @chronaxis/vue",
     "test:browser": "playwright test",
-    "typecheck": "npm run build:packages && npm run typecheck -w @chronaxis/vanilla-example && npm run typecheck -w @chronaxis/performance-example && npm run typecheck -w @chronaxis/react-example",
+    "typecheck": "npm run build:packages && npm run typecheck -w @chronaxis/vue && npm run typecheck -w @chronaxis/vanilla-example && npm run typecheck -w @chronaxis/performance-example && npm run typecheck -w @chronaxis/react-example && npm run typecheck -w @chronaxis/vue-example",
     "perf": "npm run build -w @chronaxis/core && npm run build -w @chronaxis/browser && npm run build -w @chronaxis/performance-example && npm run preview -w @chronaxis/performance-example"
   },
   "devDependencies": {
@@ -23,6 +24,7 @@
     "happy-dom": "^20.14.3",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "vue-tsc": "^3.3.11"
   }
 }

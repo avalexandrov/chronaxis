@@ -2,7 +2,7 @@
 
 Framework-agnostic timelines for the web.
 
-Chronaxis is a TypeScript library for interactive timeline and chart-style interfaces, usable directly in the browser or through a thin React adapter. Its framework-independent core keeps time, layout, and viewport logic separate from DOM rendering.
+Chronaxis is a TypeScript library for interactive timeline and chart-style interfaces, usable directly in the browser or through thin React and Vue adapters. Its framework-independent core keeps time, layout, and viewport logic separate from DOM rendering.
 
 [![npm version](https://img.shields.io/npm/v/%40chronaxis%2Fbrowser.svg)](https://www.npmjs.com/package/@chronaxis/browser)
 [![weekly downloads](https://img.shields.io/npm/dw/%40chronaxis%2Fbrowser.svg)](https://www.npmjs.com/package/@chronaxis/browser)
@@ -14,11 +14,12 @@ Chronaxis is a TypeScript library for interactive timeline and chart-style inter
 - **Framework-agnostic by design.** `@chronaxis/core` owns time, layout, and viewport math without depending on the DOM or a UI framework.
 - **A real browser API.** Use `@chronaxis/browser` directly from vanilla TypeScript or JavaScript; React is optional.
 - **A thin React adapter.** `@chronaxis/react` manages the same browser timeline instance instead of maintaining a separate implementation.
+- **A thin Vue adapter.** `@chronaxis/vue` mounts that same instance and synchronizes changed collections through `setData()`.
 - **Interactive and accessible by default.** Pan, zoom, selection, keyboard activation, typed events, and focus handling are built in.
 - **Customizable without giving up structure.** Customize item content, row labels, classes, tick formatting, and visual variables while Chronaxis retains geometry, interaction, and accessibility ownership.
 - **Built with large timelines in mind.** Horizontal culling and keyed DOM reuse are part of the renderer, and the development harness profiles datasets of up to 10,000 items.
 
-> Chronaxis is currently `0.x`. The main data, layout, browser-instance, event, and React component APIs are intended for public use, while DOM customization callbacks, exact renderer structure, and React creation-time configuration may evolve with feedback.
+> Chronaxis is currently `0.x`. The main data, layout, browser-instance, event, and framework component APIs are intended for public use, while DOM customization callbacks, exact renderer structure, and adapter creation-time configuration may evolve with feedback.
 
 ## Features
 
@@ -38,6 +39,7 @@ Chronaxis is a TypeScript library for interactive timeline and chart-style inter
 | [`@chronaxis/core`](https://www.npmjs.com/package/@chronaxis/core) | Pure normalization, scale, ruler, layout, and viewport math |
 | [`@chronaxis/browser`](https://www.npmjs.com/package/@chronaxis/browser) | Browser renderer, interactions, lifecycle, styles, and imperative API |
 | [`@chronaxis/react`](https://www.npmjs.com/package/@chronaxis/react) | Declarative React 18.2–19 adapter with an imperative ref |
+| `@chronaxis/vue` | Vue 3.5+ adapter with typed events and an exposed browser instance |
 
 ## Installation
 
@@ -53,7 +55,14 @@ React:
 npm install @chronaxis/react @chronaxis/browser
 ```
 
+Vue:
+
+```sh
+npm install @chronaxis/vue @chronaxis/browser vue
+```
+
 Chronaxis is ESM-only. The browser and React packages require DOM typings when used from TypeScript.
+The Vue package also requires DOM typings.
 
 ## Vanilla JavaScript / TypeScript
 
@@ -106,6 +115,32 @@ const items: TimelineItem<TaskData>[] = [/* ... */];
 ```
 
 `rows`, `items`, event handlers, and DOM customization callbacks are reactive. `initialRange`, `viewport`, `interactions`, `overlap`, and geometry options are creation-time props; changing them after mount does not recreate or reconfigure the instance. Range and selection are owned by Chronaxis and can be observed through events or changed through the forwarded `TimelineInstance` ref. Ordinary safe `div` attributes are passed to the outer element.
+
+## Vue
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue';
+import { Timeline, type ChronaxisVueHandle, type TimelineItem } from '@chronaxis/vue';
+import '@chronaxis/browser/styles.css';
+
+interface TaskData { owner: string }
+const rows = [{ id: 'work', label: 'Work' }];
+const items = ref<TimelineItem<TaskData>[]>([
+  { id: 'task', rowId: 'work', start: '2026-01-05', data: { owner: 'Alex' } },
+]);
+const timeline = ref<ChronaxisVueHandle<TaskData> | null>(null);
+</script>
+
+<template>
+  <button @click="timeline?.instance?.fit()">Fit</button>
+  <Timeline ref="timeline" :rows="rows" :items="items"
+    :initial-range="{ start: '2026-01-01', end: '2026-04-01' }"
+    @item-click="(event) => console.log(event.item.data?.owner)" />
+</template>
+```
+
+Replace `rows` or `items` arrays to update data; nested in-place edits are not watched. Changes to both in one Vue update use one atomic `setData()` call. `initialRange`, `viewport`, `interactions`, `overlap`, and geometry options apply on mount; the exposed instance controls the range afterward. Vue events retain browser payloads and item data typing. DOM customization props use browser `Node` or string callbacks rather than Vue slots or VNodes. See the [Vue package README](packages/vue/README.md) for details.
 
 ## Data model
 

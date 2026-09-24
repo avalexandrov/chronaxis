@@ -2,6 +2,23 @@
 
 All notable user-facing changes to Chronaxis are documented here.
 
+## 0.3.0
+
+### Added
+
+- `@chronaxis/vue`, a thin Vue 3.5+ adapter over the existing browser engine, with typed events, an exposed `TimelineInstance`, and DOM customization callbacks.
+- A Vue example demonstrating stack layout, navigation, selection, and dynamic item and atomic row/item updates.
+- Vue adapter unit, type, Node import, and real-browser smoke coverage.
+
+### Behavior
+
+- Vue `rows` and `items` updates are reference based and synchronized through one `setData()` call. Nested in-place edits require replacing the collection.
+- `initialRange`, viewport, interactions, overlap, and geometry options apply when the Vue component mounts. Browser instance methods control the range afterward.
+
+### Packages
+
+- Coordinated `0.3.0` versions for `@chronaxis/core`, `@chronaxis/browser`, `@chronaxis/react`, and `@chronaxis/vue`.
+
 ## 0.2.0
 
 ### Added
