@@ -21,6 +21,11 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
+      command: 'npm run preview -w @chronaxis/site -- --port 4176',
+      url: 'http://127.0.0.1:4176',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
       command: 'npm run dev -w @chronaxis/vue-example -- --host 127.0.0.1 --port 4175',
       url: 'http://127.0.0.1:4175',
       reuseExistingServer: !process.env.CI,

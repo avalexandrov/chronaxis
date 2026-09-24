@@ -9,6 +9,10 @@ Chronaxis is a TypeScript library for interactive timeline and chart-style inter
 
 ![Chronaxis project timeline showing overlapping work arranged in separate stack lanes](docs/assets/chronaxis-preview.png)
 
+## Interactive site
+
+The public-facing site source is in [`site/`](site/). Build all static pages and the existing Vanilla, React, and Vue live demos with `npm run build:site` (also included in `npm run build`); the deployable output is `site/dist/`. Set `SITE_BASE=/chronaxis/` when building for a repository subpath. The site has not yet been deployed, so there is no public URL to link here.
+
 ## Why Chronaxis?
 
 - **Framework-agnostic by design.** `@chronaxis/core` owns time, layout, and viewport math without depending on the DOM or a UI framework.
