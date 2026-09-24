@@ -4,6 +4,8 @@ Framework-agnostic timelines for the web.
 
 Chronaxis is a TypeScript library for interactive timeline and chart-style interfaces, usable directly in the browser or through thin React and Vue adapters. Its framework-independent core keeps time, layout, and viewport logic separate from DOM rendering.
 
+**[Explore the interactive demos and guides](https://avalexandrov.github.io/chronaxis/)**
+
 [![npm version](https://img.shields.io/npm/v/%40chronaxis%2Fbrowser.svg)](https://www.npmjs.com/package/@chronaxis/browser)
 [![weekly downloads](https://img.shields.io/npm/dw/%40chronaxis%2Fbrowser.svg)](https://www.npmjs.com/package/@chronaxis/browser)
 
@@ -11,7 +13,7 @@ Chronaxis is a TypeScript library for interactive timeline and chart-style inter
 
 ## Interactive site
 
-The public-facing site source is in [`site/`](site/). Build all static pages and the existing Vanilla, React, and Vue live demos with `npm run build:site` (also included in `npm run build`); the deployable output is `site/dist/`. Set `SITE_BASE=/chronaxis/` when building for a repository subpath. The site has not yet been deployed, so there is no public URL to link here.
+The public-facing site source is in [`site/`](site/). Build all static pages and the existing Vanilla, React, and Vue live demos with `npm run build:site` (also included in `npm run build`); the deployable output is `site/dist/`. Set `SITE_BASE=/chronaxis/` when building for a repository subpath. The site is published at [avalexandrov.github.io/chronaxis](https://avalexandrov.github.io/chronaxis/).
 
 ## Why Chronaxis?
 

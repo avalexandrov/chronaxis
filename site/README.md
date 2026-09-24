@@ -1,5 +1,7 @@
 # Chronaxis site
 
+Live site: https://avalexandrov.github.io/chronaxis/
+
 A small static Vite multipage site. The homepage and four use-case pages use only the public `@chronaxis/browser` API. The Vanilla, React, and Vue live demos are the existing apps in `examples/`; the build copies their output into `site/dist/try/`.
 
 ## Build
