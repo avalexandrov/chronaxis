@@ -45,7 +45,7 @@ The public-facing site source is in [`site/`](site/). Build all static pages and
 | [`@chronaxis/core`](https://www.npmjs.com/package/@chronaxis/core) | Pure normalization, scale, ruler, layout, and viewport math |
 | [`@chronaxis/browser`](https://www.npmjs.com/package/@chronaxis/browser) | Browser renderer, interactions, lifecycle, styles, and imperative API |
 | [`@chronaxis/react`](https://www.npmjs.com/package/@chronaxis/react) | Declarative React 18.2–19 adapter with an imperative ref |
-| `@chronaxis/vue` | Vue 3.5+ adapter with typed events and an exposed browser instance |
+| [`@chronaxis/vue`](https://www.npmjs.com/package/@chronaxis/vue) | Vue 3.5+ adapter with typed events and an exposed browser instance |
 
 ## Installation
 
